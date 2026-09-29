@@ -1,0 +1,63 @@
+import argparse
+import random
+import time
+from pathlib import Path
+
+from algorithms import genetic, hill_climbing, simulated_annealing
+from algorithms.result import SearchResult
+from core.models import Problem, load_problem
+from core.neighbors import random_state
+from core.objective import is_feasible, objective
+
+RESULTS_DIR = Path(__file__).parent / "results"
+
+
+def run_random(problem: Problem, seed: int, **params) -> SearchResult:
+    start = time.perf_counter()
+    state = random_state(problem, random.Random(seed))
+    value = objective(state, problem)
+    return SearchResult(
+        algorithm="random",
+        params=params,
+        seed=seed,
+        problem=problem.name,
+        initial_state=state,
+        final_state=state,
+        final_objective=value,
+        feasible=is_feasible(state, problem),
+        history=[value],
+        iterations=0,
+        duration_s=time.perf_counter() - start,
+    )
+
+
+ALGORITHMS = {
+    "random": run_random,
+    "hc": hill_climbing.run,
+    "sa": simulated_annealing.run,
+    "ga": genetic.run,
+}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Jalankan eksperimen local search")
+    parser.add_argument("--problem", required=True, help="path ke problem JSON")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--algo", choices=ALGORITHMS)
+    mode.add_argument("--all", action="store_true", help="jalankan semua 24 run")
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args()
+
+    problem = load_problem(args.problem)
+
+    if args.all:
+        raise NotImplementedError("Diisi di Fase 3")
+
+    result = ALGORITHMS[args.algo](problem, args.seed)
+    out = RESULTS_DIR / f"{args.algo}_seed{args.seed}.json"
+    result.save(out)
+    print(f"{args.algo}: objective={result.final_objective} feasible={result.feasible} -> {out}")
+
+
+if __name__ == "__main__":
+    main()
