@@ -2,9 +2,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-Orientation = tuple[int, int, int] # permutasi (w, l, h)
+Orientation = tuple[int, int, int]  # permutasi (w, l, h)
 Placement = tuple[int, int, int, Orientation]  # (x, y, z, orientation)
-State = dict[str, Placement | None] # none = paket outside the truk
+State = dict[str, Placement | None]  # None = paket di luar truk
+
 
 @dataclass(frozen=True)
 class Package:
@@ -14,19 +15,21 @@ class Package:
     h: int
     value: int
     weight: int
-    isFragile: bool=False
-    eta: int=0
+    is_fragile: bool = False
+    eta: int = 0
 
     @property
     def dims(self) -> tuple[int, int, int]:
         return (self.w, self.l, self.h)
+
 
 @dataclass(frozen=True)
 class Truck:
     w: int
     l: int
     h: int
-    maxCapacity: int
+    max_capacity: int
+
 
 @dataclass(frozen=True)
 class Problem:
@@ -34,7 +37,8 @@ class Problem:
     truck: Truck
     packages: dict[str, Package]
 
-def loadProblem(path: str | Path) -> Problem:
+
+def load_problem(path: str | Path) -> Problem:
     with open(path) as f:
         raw = json.load(f)
 
@@ -47,6 +51,7 @@ def loadProblem(path: str | Path) -> Problem:
         truck=Truck(**raw["truck"]),
         packages=packages,
     )
+
 
 def state_from_json(raw: dict) -> State:
     return {
