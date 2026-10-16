@@ -46,6 +46,18 @@ def main() -> None:
     mode.add_argument("--algo", choices=ALGORITHMS)
     mode.add_argument("--all", action="store_true", help="jalankan semua 24 run")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--population-size",
+        type=int,
+        default=100,
+        help="jumlah individu populasi Genetic Algorithm",
+    )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=500,
+        help="banyak iterasi Genetic Algorithm",
+    )
     args = parser.parse_args()
 
     problem = load_problem(args.problem)
@@ -53,8 +65,19 @@ def main() -> None:
     if args.all:
         raise NotImplementedError("Diisi di Fase 3")
 
-    result = ALGORITHMS[args.algo](problem, args.seed)
-    out = RESULTS_DIR / f"{args.algo}_seed{args.seed}.json"
+    params = {}
+    output_suffix = f"seed{args.seed}"
+    if args.algo == "ga":
+        params = {
+            "population_size": args.population_size,
+            "iterations": args.iterations,
+        }
+        output_suffix = (
+            f"pop{args.population_size}_iter{args.iterations}_seed{args.seed}"
+        )
+
+    result = ALGORITHMS[args.algo](problem, args.seed, **params)
+    out = RESULTS_DIR / f"{args.algo}_{output_suffix}.json"
     result.save(out)
     print(f"{args.algo}: objective={result.final_objective} feasible={result.feasible} -> {out}")
 
