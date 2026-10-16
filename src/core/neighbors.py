@@ -30,7 +30,7 @@ def extreme_points(state: State, problem: Problem, exclude: str | None = None) -
         x, y, z, orientation = placement
         dx, dy, dz = oriented_dims(problem.packages[pid].dims, orientation)
         points.update([(x+dx, y, z), (x, y+dy, z), (x, y, z+dz)])
-    return sorted(p for p in points if p[0] < truck.w and p[1] < truck.l and p[2])
+    return sorted(p for p in points if p[0] < truck.w and p[1] < truck.l and p[2] < truck.h)
 
 def random_placement(pkg: Package, truck: Truck, rng: random.Random) -> Placement | None:
     orientation = rng.choice(ORIENTATIONS)
