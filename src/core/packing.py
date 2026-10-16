@@ -102,6 +102,7 @@ def find_valid_placement(
     package_id: str,
     problem: Problem,
     rng: random.Random,
+    excluded_placements: set[Placement] | None = None,
 ) -> Placement | None:
     if package_id not in problem.packages:
         raise KeyError(f"Unknown package ID: {package_id}")
@@ -128,6 +129,8 @@ def find_valid_placement(
             for y in y_coordinates:
                 for x in x_coordinates:
                     placement: Placement = (x, y, z, orientation)
+                    if excluded_placements and placement in excluded_placements:
+                        continue
                     if _can_add_to_feasible_state(
                         base_state,
                         package_id,
@@ -207,7 +210,12 @@ def repair_state(
     )
 
     for package_id, placement in valid_candidates:
-        if can_place(repaired, package_id, placement, problem):
+        if _can_add_to_feasible_state(
+            repaired,
+            package_id,
+            placement,
+            problem,
+        ):
             repaired[package_id] = placement
         else:
             rejected_ids.append(package_id)
