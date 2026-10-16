@@ -105,7 +105,7 @@ def is_feasible(state: State, problem: Problem) -> bool:
         if placement is None:
             continue
 
-        if not _is_well_formed_placement(placement):
+        if not is_well_formed_placement(placement):
             return False
 
         package = problem.packages[pid]
@@ -147,7 +147,7 @@ def is_feasible(state: State, problem: Problem) -> bool:
 
 
 # Memeriksa bahwa placement memakai koordinat integer dan salah satu orientasi valid.
-def _is_well_formed_placement(placement: object) -> bool:
+def is_well_formed_placement(placement: object) -> bool:
     if not isinstance(placement, tuple) or len(placement) != 4:
         return False
 
