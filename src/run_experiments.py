@@ -3,6 +3,8 @@ import random
 import time
 from pathlib import Path
 
+import pandas as pd
+
 from algorithms import genetic, hill_climbing, simulated_annealing
 from algorithms.result import SearchResult
 from core.models import Problem, load_problem
@@ -10,6 +12,11 @@ from core.neighbors import random_state
 from core.objective import is_feasible, objective
 
 RESULTS_DIR = Path(__file__).parent / "results"
+SEEDS = (1, 2, 3)
+GA_POPULATION_CONTROL = 50
+GA_ITERATION_CONTROL = 100
+GA_ITERATIONS = (50, 100, 200)
+GA_POPULATIONS = (20, 50, 100)
 
 
 def run_random(problem: Problem, seed: int, **params) -> SearchResult:
@@ -39,12 +46,53 @@ ALGORITHMS = {
 }
 
 
+def experiment_plan() -> list[tuple[str, str, dict]]:
+    plan = [("random", "random", {}), ("hc", "hc", {}), ("sa", "sa", {})]
+    configs = {(GA_POPULATION_CONTROL, i) for i in GA_ITERATIONS}
+    configs |= {(p, GA_ITERATION_CONTROL) for p in GA_POPULATIONS}
+    for pop, iters in sorted(configs):
+        plan.append(("ga", f"ga_pop{pop}_iter{iters}", {"population_size": pop, "iterations": iters}))
+    return plan
+
+
+def run_all(problem: Problem, skip: list[str]) -> None:
+    rows = []
+    for algo, name, params in experiment_plan():
+        if algo in skip:
+            continue
+        for run, seed in enumerate(SEEDS, start=1):
+            result = ALGORITHMS[algo](problem, seed, **params)
+            out = RESULTS_DIR / f"{name}_run{run}.json"
+            result.save(out)
+            print(f"{out.name}: objective={result.final_objective} feasible={result.feasible} "
+                  f"{result.duration_s:.1f}s")
+            rows.append({
+                "config": name,
+                "objective": result.final_objective,
+                "feasible": result.feasible,
+                "duration_s": result.duration_s,
+            })
+
+    df = pd.DataFrame(rows)
+    summary = df.groupby("config", sort=False).agg(
+        mean=("objective", "mean"),
+        min=("objective", "min"),
+        max=("objective", "max"),
+        std=("objective", "std"),
+        feasible=("feasible", "sum"),
+        duration_s=("duration_s", "mean"),
+    )
+    print()
+    print(summary.round(2).to_string())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Jalankan eksperimen local search")
     parser.add_argument("--problem", required=True, help="path ke problem JSON")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--algo", choices=ALGORITHMS)
-    mode.add_argument("--all", action="store_true", help="jalankan semua 24 run")
+    mode.add_argument("--all", action="store_true", help="jalankan semua run eksperimen")
+    parser.add_argument("--skip", nargs="*", choices=ALGORITHMS, default=[], help="algoritma yang dilewati pada --all")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--population-size",
@@ -63,7 +111,8 @@ def main() -> None:
     problem = load_problem(args.problem)
 
     if args.all:
-        raise NotImplementedError("Diisi di Fase 3")
+        run_all(problem, args.skip)
+        return
 
     params = {}
     output_suffix = f"seed{args.seed}"
