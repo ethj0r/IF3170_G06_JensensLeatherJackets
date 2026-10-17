@@ -12,7 +12,7 @@ def run(
     problem: Problem,
     seed: int,
     t0: float = 100.0,
-    alpha: float = 0.999,
+    alpha: float = 0.99982,
     t_min: float = 0.01,
     max_iter: int = 50_000,
     penalty_weight: float | None = None,
