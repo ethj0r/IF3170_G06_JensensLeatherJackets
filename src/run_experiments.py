@@ -34,6 +34,9 @@ def run_random(problem: Problem, seed: int, **params) -> SearchResult:
 ALGORITHMS = {
     "random": run_random,
     "hc": hill_climbing.run,
+    "hc_stochastic": hill_climbing.run_stochastic,
+    "hc_sideways": hill_climbing.run_sideways,
+    "hc_restart": hill_climbing.run_restart,
     "sa": simulated_annealing.run,
     "ga": genetic.run,
 }
@@ -64,6 +67,24 @@ def main() -> None:
         default=500,
         help="banyak iterasi maksimum Hill Climbing",
     )
+    parser.add_argument(
+        "--max-sideways",
+        type=int,
+        default=5,
+        help="maksimum sideways move berurutan Hill-Climbing with Sideways Move",
+    )
+    parser.add_argument(
+        "--max-restarts",
+        type=int,
+        default=10,
+        help="maksimum restart Random Restart Hill-Climbing",
+    )
+    parser.add_argument(
+        "--max-stuck",
+        type=int,
+        default=100,
+        help="maksimum penolakan neighbor berturut-turut Stochastic Hill-Climbing",
+    )
     args = parser.parse_args()
 
     problem = load_problem(args.problem)
@@ -76,6 +97,17 @@ def main() -> None:
     if args.algo == "hc":
         params = {"max_iter": args.max_iter}
         output_suffix = f"iter{args.max_iter}_seed{args.seed}"
+    elif args.algo == "hc_stochastic":
+        params = {"max_iter": args.max_iter, "max_stuck": args.max_stuck}
+        output_suffix = (
+            f"iter{args.max_iter}_stuck{args.max_stuck}_seed{args.seed}"
+        )
+    elif args.algo == "hc_sideways":
+        params = {"max_iter": args.max_iter, "max_sideways": args.max_sideways}
+        output_suffix = f"iter{args.max_iter}_sw{args.max_sideways}_seed{args.seed}"
+    elif args.algo == "hc_restart":
+        params = {"max_iter": args.max_iter, "max_restarts": args.max_restarts}
+        output_suffix = f"iter{args.max_iter}_rst{args.max_restarts}_seed{args.seed}"
     elif args.algo == "ga":
         params = {
             "population_size": args.population_size,
