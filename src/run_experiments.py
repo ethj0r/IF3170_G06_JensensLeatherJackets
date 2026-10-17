@@ -58,6 +58,12 @@ def main() -> None:
         default=500,
         help="banyak iterasi Genetic Algorithm",
     )
+    parser.add_argument(
+        "--max-iter",
+        type=int,
+        default=500,
+        help="banyak iterasi maksimum Hill Climbing",
+    )
     args = parser.parse_args()
 
     problem = load_problem(args.problem)
@@ -67,7 +73,10 @@ def main() -> None:
 
     params = {}
     output_suffix = f"seed{args.seed}"
-    if args.algo == "ga":
+    if args.algo == "hc":
+        params = {"max_iter": args.max_iter}
+        output_suffix = f"iter{args.max_iter}_seed{args.seed}"
+    elif args.algo == "ga":
         params = {
             "population_size": args.population_size,
             "iterations": args.iterations,
