@@ -155,3 +155,49 @@ def is_well_formed_placement(placement: object) -> bool:
     if any(type(coordinate) is not int for coordinate in (x, y, z)):
         return False
     return isinstance(orientation, tuple) and orientation in ORIENTATIONS
+
+
+def overlap_volume(pkg_a: Package, placement_a: Placement, pkg_b: Package, placement_b: Placement) -> int:
+    ax, ay, az, adx, ady, adz = box(pkg_a, placement_a)
+    bx, by, bz, bdx, bdy, bdz = box(pkg_b, placement_b)
+    cx = min(ax + adx, bx + bdx) - max(ax, bx)
+    cy = min(ay + ady, by + bdy) - max(ay, by)
+    cz = min(az + adz, bz + bdz) - max(az, bz)
+    return max(0, cx) * max(0, cy) * max(0, cz)
+
+
+def violations(state: State, problem: Problem) -> int:
+    placed = [
+        (problem.packages[pid], placement)
+        for pid, placement in state.items()
+        if placement is not None
+    ]
+    total = sum(1 for pkg, placement in placed if not in_bounds(pkg, placement, problem.truck))
+
+    for i, (pkg_a, placement_a) in enumerate(placed):
+        for pkg_b, placement_b in placed[i + 1:]:
+            total += overlap_volume(pkg_a, placement_a, pkg_b, placement_b)
+
+    for i, (upper, upper_placement) in enumerate(placed):
+        if upper_placement[2] == 0:
+            continue
+        supporters = [
+            lower
+            for j, (lower, lower_placement) in enumerate(placed)
+            if j != i and supports(lower, lower_placement, upper, upper_placement)
+        ]
+        if not supporters or any(lower.is_fragile for lower in supporters):
+            total += 1
+
+    total += max(0, total_weight(state, problem) - problem.truck.max_capacity)
+    return total
+
+
+def default_penalty_weight(problem: Problem) -> float:
+    return float(sum(pkg.value for pkg in problem.packages.values()))
+
+
+def penalized_objective(state: State, problem: Problem, weight: float | None = None) -> float:
+    if weight is None:
+        weight = default_penalty_weight(problem)
+    return objective(state, problem) - weight * violations(state, problem)
