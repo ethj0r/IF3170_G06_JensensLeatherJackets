@@ -3,12 +3,12 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 
 from algorithms.result import SearchResult
+from core.fleet import assigned_truck_id, project_truck_state, split_placement
 from core.models import Problem, State
-from core.objective import box, total_weight
+from core.objective import box
 from core.objectives import (
     DEFAULT_OBJECTIVE,
     resolve_objective,
-    state_metrics,
 )
 
 FACE_I = [0, 0, 4, 4, 0, 0, 3, 3, 0, 0, 1, 1]
@@ -39,13 +39,16 @@ def truck_figure(
     problem: Problem,
     title: str = "",
     objective_name: str = DEFAULT_OBJECTIVE,
+    truck_id: str | None = None,
 ) -> go.Figure:
-    truck = problem.truck
+    selected_truck_id = truck_id or problem.truck_ids[0]
+    truck = problem.truck_for(selected_truck_id)
+    local_state = project_truck_state(state, problem, selected_truck_id)
     fig = go.Figure()
     edges_x, edges_y, edges_z = [], [], []
     palette = qualitative.Pastel + qualitative.Set3
 
-    for n, (pid, placement) in enumerate(sorted(state.items())):
+    for n, (pid, placement) in enumerate(sorted(local_state.items())):
         if placement is None:
             continue
         pkg = problem.packages[pid]
@@ -79,15 +82,21 @@ def truck_figure(
     ))
 
     evaluator = resolve_objective(problem, objective_name)
-    score = evaluator.evaluate(state)
-    raw_value = state_metrics(state, problem)["total_value"]
-    weight = total_weight(state, problem)
+    score = evaluator.evaluate(local_state)
+    raw_value = resolve_objective(problem, DEFAULT_OBJECTIVE).evaluate(local_state)
+    weight = sum(
+        problem.packages[package_id].weight
+        for package_id, placement in local_state.items()
+        if placement is not None
+    )
     objective_text = f"{evaluator.label} {score:g}"
     if objective_name != DEFAULT_OBJECTIVE:
         objective_text += f" · total value {raw_value:g}"
+    truck_prefix = f"{selected_truck_id} · " if problem.is_multi_truck else ""
     fig.update_layout(
         title=(
-            f"{title} {objective_text} · berat {weight}/{truck.max_capacity}"
+            f"{title} {truck_prefix}{objective_text} · "
+            f"berat {weight}/{truck.max_capacity}"
         ).strip(),
         scene=dict(
             xaxis=dict(title="x (w)", range=[0, truck.w]),
@@ -112,13 +121,17 @@ def package_table(
     for pid, pkg in sorted(problem.packages.items()):
         placement = state.get(pid)
         if placement is None:
+            truck_id = "-"
             status, position, size = "luar", "-", f"{pkg.w}×{pkg.l}×{pkg.h}"
         else:
-            x, y, z, dx, dy, dz = box(pkg, placement)
+            truck_id = assigned_truck_id(placement, problem)
+            _, local_placement = split_placement(placement, problem)
+            x, y, z, dx, dy, dz = box(pkg, local_placement)
             status, position, size = "dalam", f"({x}, {y}, {z})", f"{dx}×{dy}×{dz}"
         rows.append({
             "id": pid,
             "status": status,
+            "truck": truck_id,
             "posisi": position,
             "ukuran": size,
             "value": pkg.value,

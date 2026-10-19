@@ -16,6 +16,7 @@ DATA_DIR = SRC / "data"
 
 st.set_page_config(page_title="Truck Packing", layout="wide")
 st.title("Truck Packing")
+st.caption("Optimasi penempatan paket tiga dimensi dengan local search")
 
 files = sorted(RESULTS_DIR.glob("*.json"))
 if not files:
@@ -37,6 +38,7 @@ metrics = [
 if result.objective_name != DEFAULT_OBJECTIVE:
     metrics.append(("Total value", f"{final_metrics['total_value']:g}"))
 metrics.extend([
+    ("Jumlah truk", problem.truck_count),
     ("Feasible", "ya" if result.feasible else "tidak"),
     ("Iterasi", result.iterations),
     ("Durasi", f"{result.duration_s:.2f} s"),
@@ -46,29 +48,35 @@ cols = st.columns(len(metrics))
 for column, (label, value) in zip(cols, metrics):
     column.metric(label, value)
 
-left, right = st.columns(2)
-with left:
-    st.plotly_chart(
-        truck_figure(
-            result.initial_state,
-            problem,
-            "Initial ·",
-            result.objective_name,
-        ),
-        width="stretch",
-    )
-with right:
-    st.plotly_chart(
-        truck_figure(
-            result.final_state,
-            problem,
-            "Final ·",
-            result.objective_name,
-        ),
-        width="stretch",
-    )
+st.subheader("Visualisasi muatan")
+truck_tabs = st.tabs(list(problem.truck_ids))
+for tab, truck_id in zip(truck_tabs, problem.truck_ids):
+    with tab:
+        left, right = st.columns(2)
+        with left:
+            st.plotly_chart(
+                truck_figure(
+                    result.initial_state,
+                    problem,
+                    "Initial ·",
+                    result.objective_name,
+                    truck_id,
+                ),
+                width="stretch",
+            )
+        with right:
+            st.plotly_chart(
+                truck_figure(
+                    result.final_state,
+                    problem,
+                    "Final ·",
+                    result.objective_name,
+                    truck_id,
+                ),
+                width="stretch",
+            )
 
-with st.expander("Daftar paket (final)"):
+with st.expander("Daftar paket dan assignment truk (final)"):
     st.dataframe(
         package_table(result.final_state, problem, result.objective_name),
         hide_index=True,
