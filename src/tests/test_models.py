@@ -1,3 +1,4 @@
+import json
 import random
 from pathlib import Path
 
@@ -53,3 +54,31 @@ def test_search_result_save_load(tmp_path):
     path = tmp_path / "result.json"
     result.save(path)
     assert SearchResult.load(path) == result
+
+
+# Memastikan file hasil lama tanpa objective_name tetap dapat dibuka.
+def test_search_result_loads_legacy_total_value_file(tmp_path):
+    problem = load_problem(TINY)
+    state = random_state(problem, random.Random(1))
+    result = SearchResult(
+        algorithm="legacy",
+        params={},
+        seed=1,
+        problem=problem.name,
+        initial_state=state,
+        final_state=state,
+        final_objective=0.0,
+        feasible=True,
+        history=[0.0],
+        iterations=0,
+        duration_s=0.0,
+    )
+    path = tmp_path / "legacy.json"
+    result.save(path)
+    raw = json.loads(path.read_text())
+    raw.pop("objective_name")
+    path.write_text(json.dumps(raw))
+
+    loaded = SearchResult.load(path)
+
+    assert loaded.objective_name == "total_value"

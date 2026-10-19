@@ -82,3 +82,42 @@ def test_build_single_ga_experiment():
 
     assert experiment.params == {"population_size": 30, "iterations": 75}
     assert experiment.filename == "ga_pop30_iter75_seed42.json"
+
+
+# Memastikan objective bonus diteruskan dan dibedakan pada nama output.
+def test_build_single_priority_objective_experiment():
+    args = argparse.Namespace(
+        algo="ga",
+        seed=42,
+        objective="priority_value",
+        population_size=30,
+        iterations=75,
+        max_iter=500,
+        max_stuck=100,
+        max_sideways=5,
+        max_restarts=10,
+    )
+
+    experiment = build_single_experiment(args)
+
+    assert experiment.params == {
+        "population_size": 30,
+        "iterations": 75,
+        "objective_name": "priority_value",
+    }
+    assert experiment.filename == (
+        "ga_priority_value_pop30_iter75_seed42.json"
+    )
+
+
+# Memastikan mode --all juga membentuk 24 output bonus yang unik.
+def test_build_all_priority_objective_experiments():
+    experiments = build_all_experiments(objective_name="priority_value")
+
+    assert len(experiments) == 24
+    assert len({experiment.filename for experiment in experiments}) == 24
+    assert all("priority_value" in experiment.filename for experiment in experiments)
+    assert all(
+        experiment.params["objective_name"] == "priority_value"
+        for experiment in experiments
+    )
