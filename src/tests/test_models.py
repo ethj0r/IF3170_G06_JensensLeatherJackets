@@ -6,6 +6,7 @@ from core.models import load_problem
 from core.neighbors import random_state
 
 TINY = Path(__file__).parent.parent / "data" / "tiny.json"
+LARGE = Path(__file__).parent.parent / "data" / "large.json"
 
 
 def test_load_problem():
@@ -14,6 +15,22 @@ def test_load_problem():
     assert problem.truck.max_capacity == 100
     assert len(problem.packages) == 8
     assert problem.packages["P07"].is_fragile
+
+
+# Memastikan dataset besar valid dan cukup variatif untuk eksperimen tambahan.
+def test_load_large_problem():
+    problem = load_problem(LARGE)
+    packages = list(problem.packages.values())
+
+    assert problem.name == "large"
+    assert len(packages) == 45
+    assert sum(package.weight for package in packages) > problem.truck.max_capacity
+    assert sum(package.w * package.l * package.h for package in packages) > (
+        problem.truck.w * problem.truck.l * problem.truck.h
+    )
+    assert any(package.is_fragile for package in packages)
+    assert any(not package.is_fragile for package in packages)
+    assert len({package.dims for package in packages}) >= 40
 
 
 def test_search_result_save_load(tmp_path):
