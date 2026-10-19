@@ -20,14 +20,17 @@ class SearchResult:
     duration_s: float
     objective_name: str = "total_value"
     truck_count: int = 1
+    problem_definition: dict | None = None
     extra: dict = field(default_factory=dict)
 
+    # Menyimpan hasil eksperimen sebagai JSON yang dapat dibuka visualizer.
     def save(self, path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(asdict(self), f, indent=2)
 
+    # Memuat hasil baru maupun hasil legacy yang belum memiliki field bonus.
     @classmethod
     def load(cls, path: str | Path) -> "SearchResult":
         with open(path) as f:

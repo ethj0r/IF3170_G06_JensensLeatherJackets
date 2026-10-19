@@ -2,6 +2,8 @@ import json
 import random
 from pathlib import Path
 
+import pytest
+
 from algorithms.result import SearchResult
 from core.models import load_problem
 from core.neighbors import random_state
@@ -82,3 +84,40 @@ def test_search_result_loads_legacy_total_value_file(tmp_path):
     loaded = SearchResult.load(path)
 
     assert loaded.objective_name == "total_value"
+
+
+# Memastikan dimensi dan atribut numerik invalid ditolak saat membaca JSON.
+@pytest.mark.parametrize(
+    "field_update",
+    [
+        {"truck": {"w": 0, "l": 2, "h": 1, "max_capacity": 10}},
+        {"truck": {"w": 2, "l": 2, "h": 1, "max_capacity": -1}},
+        {"package": {"w": 0}},
+        {"package": {"weight": -1}},
+        {"package": {"eta": -1}},
+    ],
+)
+def test_load_problem_rejects_invalid_numeric_data(tmp_path, field_update):
+    raw = {
+        "name": "invalid",
+        "truck": {"w": 2, "l": 2, "h": 1, "max_capacity": 10},
+        "packages": [{
+            "id": "P01",
+            "w": 1,
+            "l": 1,
+            "h": 1,
+            "value": 1,
+            "weight": 1,
+            "is_fragile": False,
+            "eta": 1,
+        }],
+    }
+    if "truck" in field_update:
+        raw["truck"] = field_update["truck"]
+    else:
+        raw["packages"][0].update(field_update["package"])
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(raw))
+
+    with pytest.raises(ValueError):
+        load_problem(path)

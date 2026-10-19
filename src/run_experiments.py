@@ -6,7 +6,7 @@ from pathlib import Path
 
 from algorithms import genetic, hill_climbing, simulated_annealing
 from algorithms.result import SearchResult
-from core.models import Problem, load_problem
+from core.models import Problem, load_problem, problem_to_dict
 from core.neighbors import random_state
 from core.objective import is_feasible
 from core.objectives import (
@@ -242,6 +242,7 @@ def execute_experiment(
         experiment.seed,
         **experiment.params,
     )
+    result.problem_definition = problem_to_dict(problem)
     problem_prefix = f"{problem.name}_" if problem.is_multi_truck else ""
     output_path = output_dir / f"{problem_prefix}{experiment.filename}"
     result.save(output_path)

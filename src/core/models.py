@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 Orientation = tuple[int, int, int]  # permutasi (w, l, h)
@@ -78,7 +78,17 @@ def _parse_truck(raw: dict, default_id: str) -> tuple[str, Truck]:
     truck_id = truck_data.pop("id", default_id)
     if not isinstance(truck_id, str) or not truck_id:
         raise ValueError("Truck ID must be a non-empty string")
-    return truck_id, Truck(**truck_data)
+    truck = Truck(**truck_data)
+    if any(
+        type(value) is not int or value <= 0
+        for value in (truck.w, truck.l, truck.h)
+    ):
+        raise ValueError(f"Truck {truck_id} dimensions must be positive integers")
+    if type(truck.max_capacity) is not int or truck.max_capacity < 0:
+        raise ValueError(
+            f"Truck {truck_id} max_capacity must be a non-negative integer"
+        )
+    return truck_id, truck
 
 
 # Membaca konfigurasi satu truk, armada identik, atau daftar truk heterogen.
@@ -112,24 +122,74 @@ def _load_trucks(raw: dict) -> dict[str, Truck]:
     }
 
 
-def load_problem(path: str | Path) -> Problem:
-    with open(path) as f:
-        raw = json.load(f)
-
+# Membentuk problem dari representasi dictionary yang berasal dari JSON atau hasil.
+def problem_from_dict(raw: dict, default_name: str = "problem") -> Problem:
     packages = {p["id"]: Package(**p) for p in raw["packages"]}
     if len(packages) != len(raw["packages"]):
         raise ValueError("There are duplicated package IDs")
+    for package in packages.values():
+        if not isinstance(package.id, str) or not package.id:
+            raise ValueError("Package ID must be a non-empty string")
+        if any(
+            type(value) is not int or value <= 0
+            for value in package.dims
+        ):
+            raise ValueError(
+                f"Package {package.id} dimensions must be positive integers"
+            )
+        if type(package.value) is not int or package.value < 0:
+            raise ValueError(
+                f"Package {package.id} value must be a non-negative integer"
+            )
+        if type(package.weight) is not int or package.weight < 0:
+            raise ValueError(
+                f"Package {package.id} weight must be a non-negative integer"
+            )
+        if type(package.is_fragile) is not bool:
+            raise ValueError(f"Package {package.id} is_fragile must be boolean")
+        if type(package.eta) is not int or package.eta < 0:
+            raise ValueError(
+                f"Package {package.id} eta must be a non-negative integer"
+            )
 
     trucks = _load_trucks(raw)
 
     return Problem(
-        name=raw.get("name", Path(path).stem),
+        name=raw.get("name", default_name),
         truck=next(iter(trucks.values())),
         packages=packages,
         trucks=trucks if len(trucks) > 1 else None,
     )
 
 
+# Memuat problem JSON dari filesystem.
+def load_problem(path: str | Path) -> Problem:
+    path = Path(path)
+    with open(path) as file:
+        raw = json.load(file)
+    return problem_from_dict(raw, path.stem)
+
+
+# Mengubah problem menjadi dictionary portabel untuk disimpan bersama hasil.
+def problem_to_dict(problem: Problem) -> dict:
+    raw: dict = {
+        "name": problem.name,
+        "packages": [
+            asdict(package)
+            for package in problem.packages.values()
+        ],
+    }
+    if problem.is_multi_truck:
+        raw["trucks"] = [
+            {"id": truck_id, **asdict(truck)}
+            for truck_id, truck in problem.fleet.items()
+        ]
+    else:
+        raw["truck"] = asdict(problem.truck)
+    return raw
+
+
+# Mengubah representasi placement JSON menjadi tuple internal yang tervalidasi.
 def state_from_json(raw: dict) -> State:
     state: State = {}
     for package_id, placement in raw.items():
