@@ -1,5 +1,6 @@
 from itertools import permutations
 
+from core.fleet import fleet_weights, project_truck_state, split_placement
 from core.models import Orientation, Package, Placement, Problem, State, Truck
 from core.objectives import DEFAULT_OBJECTIVE, resolve_objective
 
@@ -86,6 +87,11 @@ def total_weight(state: State, problem: Problem) -> int:
     )
 
 
+# Menghitung total berat paket pada satu truk tertentu.
+def truck_weight(state: State, problem: Problem, truck_id: str) -> int:
+    return fleet_weights(state, problem)[truck_id]
+
+
 # Menghitung objective terpilih; total value tetap menjadi perilaku default.
 def objective(
     state: State,
@@ -98,6 +104,32 @@ def objective(
 # Memeriksa seluruh hard constraint dan kelengkapan representasi state.
 # Paket dengan placement None dianggap berada di luar peti kemas.
 def is_feasible(state: State, problem: Problem) -> bool:
+    if set(state) != set(problem.packages):
+        return False
+
+    if problem.is_multi_truck:
+        for placement in state.values():
+            if placement is None:
+                continue
+            try:
+                _, local_placement = split_placement(placement, problem)
+            except (TypeError, ValueError):
+                return False
+            if not is_well_formed_placement(local_placement):
+                return False
+
+        for truck_id, truck in problem.fleet.items():
+            local_problem = Problem(problem.name, truck, problem.packages)
+            local_state = project_truck_state(state, problem, truck_id)
+            if not _is_single_truck_feasible(local_state, local_problem):
+                return False
+        return True
+
+    return _is_single_truck_feasible(state, problem)
+
+
+# Memeriksa constraint geometri dan kapasitas pada tepat satu truk.
+def _is_single_truck_feasible(state: State, problem: Problem) -> bool:
     if set(state) != set(problem.packages):
         return False
 
@@ -168,6 +200,36 @@ def overlap_volume(pkg_a: Package, placement_a: Placement, pkg_b: Package, place
 
 
 def violations(state: State, problem: Problem) -> int:
+    if set(state) != set(problem.packages):
+        return len(set(state).symmetric_difference(problem.packages)) or 1
+
+    if problem.is_multi_truck:
+        malformed = 0
+        for placement in state.values():
+            if placement is None:
+                continue
+            try:
+                _, local_placement = split_placement(placement, problem)
+                if not is_well_formed_placement(local_placement):
+                    malformed += 1
+            except (TypeError, ValueError):
+                malformed += 1
+        if malformed:
+            return malformed
+
+        return sum(
+            _single_truck_violations(
+                project_truck_state(state, problem, truck_id),
+                Problem(problem.name, truck, problem.packages),
+            )
+            for truck_id, truck in problem.fleet.items()
+        )
+
+    return _single_truck_violations(state, problem)
+
+
+# Menghitung besar pelanggaran constraint pada tepat satu truk.
+def _single_truck_violations(state: State, problem: Problem) -> int:
     placed = [
         (problem.packages[pid], placement)
         for pid, placement in state.items()
