@@ -4,7 +4,12 @@ from plotly.colors import qualitative
 
 from algorithms.result import SearchResult
 from core.models import Problem, State
-from core.objective import box, objective, total_weight
+from core.objective import box, total_weight
+from core.objectives import (
+    DEFAULT_OBJECTIVE,
+    resolve_objective,
+    state_metrics,
+)
 
 FACE_I = [0, 0, 4, 4, 0, 0, 3, 3, 0, 0, 1, 1]
 FACE_J = [1, 2, 5, 6, 1, 5, 2, 6, 3, 7, 2, 6]
@@ -29,7 +34,12 @@ def edge_coords(points):
     return xs, ys, zs
 
 
-def truck_figure(state: State, problem: Problem, title: str = "") -> go.Figure:
+def truck_figure(
+    state: State,
+    problem: Problem,
+    title: str = "",
+    objective_name: str = DEFAULT_OBJECTIVE,
+) -> go.Figure:
     truck = problem.truck
     fig = go.Figure()
     edges_x, edges_y, edges_z = [], [], []
@@ -68,10 +78,17 @@ def truck_figure(state: State, problem: Problem, title: str = "") -> go.Figure:
         line=dict(color="#888", width=4, dash="dash"), hoverinfo="skip", showlegend=False,
     ))
 
-    value = objective(state, problem)
+    evaluator = resolve_objective(problem, objective_name)
+    score = evaluator.evaluate(state)
+    raw_value = state_metrics(state, problem)["total_value"]
     weight = total_weight(state, problem)
+    objective_text = f"{evaluator.label} {score:g}"
+    if objective_name != DEFAULT_OBJECTIVE:
+        objective_text += f" · total value {raw_value:g}"
     fig.update_layout(
-        title=f"{title} value {value:g} · berat {weight}/{truck.max_capacity}".strip(),
+        title=(
+            f"{title} {objective_text} · berat {weight}/{truck.max_capacity}"
+        ).strip(),
         scene=dict(
             xaxis=dict(title="x (w)", range=[0, truck.w]),
             yaxis=dict(title="y (l)", range=[0, truck.l]),
@@ -85,7 +102,12 @@ def truck_figure(state: State, problem: Problem, title: str = "") -> go.Figure:
     return fig
 
 
-def package_table(state: State, problem: Problem) -> pd.DataFrame:
+def package_table(
+    state: State,
+    problem: Problem,
+    objective_name: str = DEFAULT_OBJECTIVE,
+) -> pd.DataFrame:
+    evaluator = resolve_objective(problem, objective_name)
     rows = []
     for pid, pkg in sorted(problem.packages.items()):
         placement = state.get(pid)
@@ -100,6 +122,8 @@ def package_table(state: State, problem: Problem) -> pd.DataFrame:
             "posisi": position,
             "ukuran": size,
             "value": pkg.value,
+            "eta": pkg.eta,
+            "objective utility": evaluator.package_utilities[pid],
             "berat": pkg.weight,
             "fragile": pkg.is_fragile,
         })
@@ -117,9 +141,12 @@ def objective_figure(result: SearchResult) -> go.Figure:
     if "best_feasible_history" in extra:
         fig.add_trace(go.Scatter(y=extra["best_feasible_history"], mode="lines", name="best feasible"))
     fig.update_layout(
-        title=f"{result.algorithm} · seed {result.seed} · final {result.final_objective:g}",
+        title=(
+            f"{result.algorithm} · {result.objective_name} · seed {result.seed} "
+            f"· final {result.final_objective:g}"
+        ),
         xaxis_title="iterasi",
-        yaxis_title="objective",
+        yaxis_title=result.objective_name,
         margin=dict(l=0, r=0, t=40, b=0),
     )
     return fig

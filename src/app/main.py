@@ -8,6 +8,7 @@ import streamlit as st
 from algorithms.result import SearchResult
 from app.plots import acceptance_figure, objective_figure, package_table, temperature_figure, truck_figure
 from core.models import load_problem
+from core.objectives import DEFAULT_OBJECTIVE, resolve_objective, state_metrics
 
 SRC = Path(__file__).resolve().parent.parent
 RESULTS_DIR = SRC.parent / "output"
@@ -24,21 +25,55 @@ if not files:
 path = st.selectbox("Hasil", files, format_func=lambda p: p.name)
 result = SearchResult.load(path)
 problem = load_problem(DATA_DIR / f"{result.problem}.json")
+evaluator = resolve_objective(problem, result.objective_name)
+final_metrics = result.extra.get(
+    "final_metrics",
+    state_metrics(result.final_state, problem),
+)
 
-cols = st.columns(4)
-cols[0].metric("Objective", f"{result.final_objective:g}")
-cols[1].metric("Feasible", "ya" if result.feasible else "tidak")
-cols[2].metric("Iterasi", result.iterations)
-cols[3].metric("Durasi", f"{result.duration_s:.2f} s")
+metrics = [
+    (evaluator.label, f"{result.final_objective:g}"),
+]
+if result.objective_name != DEFAULT_OBJECTIVE:
+    metrics.append(("Total value", f"{final_metrics['total_value']:g}"))
+metrics.extend([
+    ("Feasible", "ya" if result.feasible else "tidak"),
+    ("Iterasi", result.iterations),
+    ("Durasi", f"{result.duration_s:.2f} s"),
+])
+
+cols = st.columns(len(metrics))
+for column, (label, value) in zip(cols, metrics):
+    column.metric(label, value)
 
 left, right = st.columns(2)
 with left:
-    st.plotly_chart(truck_figure(result.initial_state, problem, "Initial ·"), width="stretch")
+    st.plotly_chart(
+        truck_figure(
+            result.initial_state,
+            problem,
+            "Initial ·",
+            result.objective_name,
+        ),
+        width="stretch",
+    )
 with right:
-    st.plotly_chart(truck_figure(result.final_state, problem, "Final ·"), width="stretch")
+    st.plotly_chart(
+        truck_figure(
+            result.final_state,
+            problem,
+            "Final ·",
+            result.objective_name,
+        ),
+        width="stretch",
+    )
 
 with st.expander("Daftar paket (final)"):
-    st.dataframe(package_table(result.final_state, problem), hide_index=True, width="stretch")
+    st.dataframe(
+        package_table(result.final_state, problem, result.objective_name),
+        hide_index=True,
+        width="stretch",
+    )
 
 st.plotly_chart(objective_figure(result), width="stretch")
 

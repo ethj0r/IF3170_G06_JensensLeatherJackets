@@ -8,7 +8,13 @@ from algorithms import genetic, hill_climbing, simulated_annealing
 from algorithms.result import SearchResult
 from core.models import Problem, load_problem
 from core.neighbors import random_state
-from core.objective import is_feasible, objective
+from core.objective import is_feasible
+from core.objectives import (
+    DEFAULT_OBJECTIVE,
+    OBJECTIVE_NAMES,
+    resolve_objective,
+    state_metrics,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "output"
@@ -34,7 +40,9 @@ class Experiment:
 def run_random(problem: Problem, seed: int, **params) -> SearchResult:
     start = time.perf_counter()
     state = random_state(problem, random.Random(seed))
-    value = objective(state, problem)
+    objective_name = params.get("objective_name", DEFAULT_OBJECTIVE)
+    evaluator = resolve_objective(problem, objective_name)
+    value = evaluator.evaluate(state)
     return SearchResult(
         algorithm="random",
         params=params,
@@ -47,6 +55,11 @@ def run_random(problem: Problem, seed: int, **params) -> SearchResult:
         history=[value],
         iterations=0,
         duration_s=time.perf_counter() - start,
+        objective_name=objective_name,
+        extra={
+            "initial_metrics": state_metrics(state, problem),
+            "final_metrics": state_metrics(state, problem),
+        },
     )
 
 
@@ -76,6 +89,20 @@ def _validate_ga_variations(
         raise ValueError("GA iteration variations must be non-negative")
 
 
+# Menambahkan objective non-default ke parameter dan label hasil eksperimen.
+def _objective_configuration(
+    objective_name: str,
+) -> tuple[dict[str, str], str]:
+    if objective_name not in OBJECTIVE_NAMES:
+        choices = ", ".join(OBJECTIVE_NAMES)
+        raise ValueError(
+            f"Unknown objective '{objective_name}'. Choose one of: {choices}"
+        )
+    if objective_name == DEFAULT_OBJECTIVE:
+        return {}, ""
+    return {"objective_name": objective_name}, f"_{objective_name}"
+
+
 # Menyusun 24 eksperimen wajib: masing-masing tiga run HC dan SA, lalu
 # dua studi GA yang masing-masing memiliki tiga konfigurasi dan tiga seed.
 def build_all_experiments(
@@ -86,6 +113,7 @@ def build_all_experiments(
     fixed_iterations: int = 500,
     population_variations: tuple[int, ...] = DEFAULT_GA_POPULATION_VARIATIONS,
     iteration_variations: tuple[int, ...] = DEFAULT_GA_ITERATION_VARIATIONS,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> list[Experiment]:
     if len(seeds) != 3 or len(set(seeds)) != 3:
         raise ValueError("all experiments require exactly three distinct seeds")
@@ -97,13 +125,19 @@ def build_all_experiments(
         raise ValueError("fixed GA iterations must be non-negative")
 
     _validate_ga_variations(population_variations, iteration_variations)
+    objective_params, objective_suffix = _objective_configuration(objective_name)
 
     experiments = [
-        Experiment("hc", seed, {"max_iter": max_iter}, f"hc_iter{max_iter}")
+        Experiment(
+            "hc",
+            seed,
+            {"max_iter": max_iter, **objective_params},
+            f"hc{objective_suffix}_iter{max_iter}",
+        )
         for seed in seeds
     ]
     experiments.extend(
-        Experiment("sa", seed, {}, "sa")
+        Experiment("sa", seed, dict(objective_params), f"sa{objective_suffix}")
         for seed in seeds
     )
 
@@ -115,8 +149,10 @@ def build_all_experiments(
                 {
                     "population_size": fixed_population,
                     "iterations": iterations,
+                    **objective_params,
                 },
-                f"ga_iteration_study_pop{fixed_population}_iter{iterations}",
+                f"ga{objective_suffix}_iteration_study_"
+                f"pop{fixed_population}_iter{iterations}",
             )
             for seed in seeds
         )
@@ -129,8 +165,10 @@ def build_all_experiments(
                 {
                     "population_size": population_size,
                     "iterations": fixed_iterations,
+                    **objective_params,
                 },
-                f"ga_population_study_pop{population_size}_iter{fixed_iterations}",
+                f"ga{objective_suffix}_population_study_"
+                f"pop{population_size}_iter{fixed_iterations}",
             )
             for seed in seeds
         )
@@ -140,27 +178,54 @@ def build_all_experiments(
 
 # Mengubah pilihan single-run CLI menjadi parameter dan nama berkas yang jelas.
 def build_single_experiment(args: argparse.Namespace) -> Experiment:
-    params = {}
-    output_label = args.algo
+    objective_name = getattr(args, "objective", DEFAULT_OBJECTIVE)
+    objective_params, objective_suffix = _objective_configuration(objective_name)
+    params = dict(objective_params)
+    output_label = f"{args.algo}{objective_suffix}"
 
     if args.algo == "hc":
-        params = {"max_iter": args.max_iter}
-        output_label = f"hc_iter{args.max_iter}"
+        params = {"max_iter": args.max_iter, **objective_params}
+        output_label = f"hc{objective_suffix}_iter{args.max_iter}"
     elif args.algo == "hc_stochastic":
-        params = {"max_iter": args.max_iter, "max_stuck": args.max_stuck}
-        output_label = f"hc_stochastic_iter{args.max_iter}_stuck{args.max_stuck}"
+        params = {
+            "max_iter": args.max_iter,
+            "max_stuck": args.max_stuck,
+            **objective_params,
+        }
+        output_label = (
+            f"hc_stochastic{objective_suffix}_"
+            f"iter{args.max_iter}_stuck{args.max_stuck}"
+        )
     elif args.algo == "hc_sideways":
-        params = {"max_iter": args.max_iter, "max_sideways": args.max_sideways}
-        output_label = f"hc_sideways_iter{args.max_iter}_sw{args.max_sideways}"
+        params = {
+            "max_iter": args.max_iter,
+            "max_sideways": args.max_sideways,
+            **objective_params,
+        }
+        output_label = (
+            f"hc_sideways{objective_suffix}_"
+            f"iter{args.max_iter}_sw{args.max_sideways}"
+        )
     elif args.algo == "hc_restart":
-        params = {"max_iter": args.max_iter, "max_restarts": args.max_restarts}
-        output_label = f"hc_restart_iter{args.max_iter}_rst{args.max_restarts}"
+        params = {
+            "max_iter": args.max_iter,
+            "max_restarts": args.max_restarts,
+            **objective_params,
+        }
+        output_label = (
+            f"hc_restart{objective_suffix}_"
+            f"iter{args.max_iter}_rst{args.max_restarts}"
+        )
     elif args.algo == "ga":
         params = {
             "population_size": args.population_size,
             "iterations": args.iterations,
+            **objective_params,
         }
-        output_label = f"ga_pop{args.population_size}_iter{args.iterations}"
+        output_label = (
+            f"ga{objective_suffix}_"
+            f"pop{args.population_size}_iter{args.iterations}"
+        )
 
     return Experiment(args.algo, args.seed, params, output_label)
 
@@ -190,6 +255,12 @@ def execute_experiment(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Jalankan eksperimen local search")
     parser.add_argument("--problem", required=True, help="path ke problem JSON")
+    parser.add_argument(
+        "--objective",
+        choices=OBJECTIVE_NAMES,
+        default=DEFAULT_OBJECTIVE,
+        help="objective function yang dioptimalkan",
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -276,11 +347,15 @@ def main() -> None:
             fixed_iterations=args.iterations,
             population_variations=tuple(args.ga_population_variations),
             iteration_variations=tuple(args.ga_iteration_variations),
+            objective_name=args.objective,
         )
     else:
         experiments = [build_single_experiment(args)]
 
-    print(f"Menjalankan {len(experiments)} eksperimen untuk problem {problem.name}")
+    print(
+        f"Menjalankan {len(experiments)} eksperimen untuk problem {problem.name} "
+        f"dengan objective {args.objective}"
+    )
     for index, experiment in enumerate(experiments, start=1):
         print(f"[{index}/{len(experiments)}]", end=" ", flush=True)
         execute_experiment(experiment, problem, args.output_dir)
