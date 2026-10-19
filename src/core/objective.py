@@ -1,6 +1,7 @@
 from itertools import permutations
 
 from core.models import Orientation, Package, Placement, Problem, State, Truck
+from core.objectives import DEFAULT_OBJECTIVE, resolve_objective
 
 ORIENTATIONS: list[Orientation] = list(permutations(range(3)))
 
@@ -85,13 +86,13 @@ def total_weight(state: State, problem: Problem) -> int:
     )
 
 
-# Menghitung objective function berupa total value paket di dalam peti kemas.
-def objective(state: State, problem: Problem) -> float:
-    return float(sum(
-        problem.packages[pid].value
-        for pid, placement in state.items()
-        if placement is not None
-    ))
+# Menghitung objective terpilih; total value tetap menjadi perilaku default.
+def objective(
+    state: State,
+    problem: Problem,
+    objective_name: str = DEFAULT_OBJECTIVE,
+) -> float:
+    return resolve_objective(problem, objective_name).evaluate(state)
 
 
 # Memeriksa seluruh hard constraint dan kelengkapan representasi state.
@@ -193,11 +194,23 @@ def violations(state: State, problem: Problem) -> int:
     return total
 
 
-def default_penalty_weight(problem: Problem) -> float:
-    return float(sum(pkg.value for pkg in problem.packages.values()))
+def default_penalty_weight(
+    problem: Problem,
+    objective_name: str = DEFAULT_OBJECTIVE,
+) -> float:
+    evaluator = resolve_objective(problem, objective_name)
+    return max(1.0, evaluator.maximum_score)
 
 
-def penalized_objective(state: State, problem: Problem, weight: float | None = None) -> float:
+def penalized_objective(
+    state: State,
+    problem: Problem,
+    weight: float | None = None,
+    objective_name: str = DEFAULT_OBJECTIVE,
+) -> float:
     if weight is None:
-        weight = default_penalty_weight(problem)
-    return objective(state, problem) - weight * violations(state, problem)
+        weight = default_penalty_weight(problem, objective_name)
+    return (
+        objective(state, problem, objective_name)
+        - weight * violations(state, problem)
+    )

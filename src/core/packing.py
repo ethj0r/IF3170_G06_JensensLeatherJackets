@@ -1,6 +1,11 @@
 import random
 
 from core.models import Orientation, Package, Placement, Problem, State
+from core.objectives import (
+    DEFAULT_OBJECTIVE,
+    ObjectiveEvaluator,
+    resolve_objective,
+)
 from core.objective import (
     ORIENTATIONS,
     in_bounds,
@@ -167,12 +172,17 @@ def random_feasible_state(
     return state
 
 
-# Menghitung prioritas paket berdasarkan value per unit volume.
-def _value_density(package: Package) -> float:
+# Menghitung prioritas paket berdasarkan utility objective per unit volume.
+def _utility_density(
+    package_id: str,
+    problem: Problem,
+    evaluator: ObjectiveEvaluator,
+) -> float:
+    package = problem.packages[package_id]
     volume = package.w * package.l * package.h
     if volume <= 0:
         return float("-inf")
-    return package.value / volume
+    return evaluator.package_utilities[package_id] / volume
 
 
 # Memperbaiki state tanpa memutasi input dan selalu menghasilkan state feasible.
@@ -184,7 +194,9 @@ def repair_state(
     problem: Problem,
     rng: random.Random,
     fill_outside: bool = True,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> State:
+    evaluator = resolve_objective(problem, objective_name)
     repaired: State = {package_id: None for package_id in problem.packages}
     valid_candidates: list[tuple[str, Placement]] = []
     rejected_ids: list[str] = []
@@ -203,8 +215,8 @@ def repair_state(
     valid_candidates.sort(
         key=lambda item: (
             item[1][2],
-            -_value_density(problem.packages[item[0]]),
-            -problem.packages[item[0]].value,
+            -_utility_density(item[0], problem, evaluator),
+            -evaluator.package_utilities[item[0]],
             item[0],
         )
     )
@@ -229,8 +241,8 @@ def repair_state(
     pending_ids.sort(
         key=lambda package_id: (
             problem.packages[package_id].is_fragile,
-            -_value_density(problem.packages[package_id]),
-            -problem.packages[package_id].value,
+            -_utility_density(package_id, problem, evaluator),
+            -evaluator.package_utilities[package_id],
         )
     )
 
