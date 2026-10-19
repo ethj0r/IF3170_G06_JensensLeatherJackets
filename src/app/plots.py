@@ -14,10 +14,15 @@ from core.objectives import (
 FACE_I = [0, 0, 4, 4, 0, 0, 3, 3, 0, 0, 1, 1]
 FACE_J = [1, 2, 5, 6, 1, 5, 2, 6, 3, 7, 2, 6]
 FACE_K = [2, 3, 6, 7, 5, 4, 6, 7, 7, 4, 6, 5]
-EDGES = [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)]
+EDGES = [
+    (0, 1), (1, 2), (2, 3), (3, 0),
+    (4, 5), (5, 6), (6, 7), (7, 4),
+    (0, 4), (1, 5), (2, 6), (3, 7),
+]
 FRAGILE_COLOR = "#e4572e"
 
 
+# Menghasilkan delapan titik sudut sebuah balok.
 def corners(x, y, z, dx, dy, dz):
     return [
         (x, y, z), (x + dx, y, z), (x + dx, y + dy, z), (x, y + dy, z),
@@ -25,6 +30,7 @@ def corners(x, y, z, dx, dy, dz):
     ]
 
 
+# Mengubah pasangan rusuk menjadi koordinat garis Plotly.
 def edge_coords(points):
     xs, ys, zs = [], [], []
     for a, b in EDGES:
@@ -34,6 +40,7 @@ def edge_coords(points):
     return xs, ys, zs
 
 
+# Membentuk visualisasi tiga dimensi untuk satu truk pada state tertentu.
 def truck_figure(
     state: State,
     problem: Problem,
@@ -111,6 +118,7 @@ def truck_figure(
     return fig
 
 
+# Membentuk tabel seluruh paket, termasuk paket yang berada di luar armada.
 def package_table(
     state: State,
     problem: Problem,
@@ -143,16 +151,62 @@ def package_table(
     return pd.DataFrame(rows)
 
 
+# Menghasilkan koordinat x history yang tetap benar saat HC melakukan restart.
+def _history_iterations(result: SearchResult) -> list[int]:
+    per_restart = result.extra.get("iterations_per_restart")
+    if not isinstance(per_restart, list):
+        return list(range(len(result.history)))
+
+    iterations: list[int] = []
+    cumulative = 0
+    for climb_iterations in per_restart:
+        iterations.extend(
+            range(cumulative, cumulative + climb_iterations + 1)
+        )
+        cumulative += climb_iterations
+    if len(iterations) != len(result.history):
+        return list(range(len(result.history)))
+    return iterations
+
+
+# Membentuk plot objective yang sesuai dengan jenis algoritma.
 def objective_figure(result: SearchResult) -> go.Figure:
     extra = result.extra
     fig = go.Figure()
     if "average_history" in extra:
-        fig.add_trace(go.Scatter(y=result.history, mode="lines", name="maksimum populasi"))
-        fig.add_trace(go.Scatter(y=extra["average_history"], mode="lines", name="rata-rata populasi"))
+        fig.add_trace(go.Scatter(
+            y=result.history,
+            mode="lines",
+            name="maksimum populasi",
+        ))
+        fig.add_trace(go.Scatter(
+            y=extra["average_history"],
+            mode="lines",
+            name="rata-rata populasi",
+        ))
     else:
-        fig.add_trace(go.Scatter(y=result.history, mode="lines", name="current", line=dict(width=1)))
+        is_legacy_sa = (
+            result.algorithm == "simulated_annealing"
+            and "search_score_history" not in extra
+        )
+        current_label = (
+            "penalized score (legacy)"
+            if is_legacy_sa
+            else "objective saat ini"
+        )
+        fig.add_trace(go.Scatter(
+            x=_history_iterations(result),
+            y=result.history,
+            mode="lines",
+            name=current_label,
+            line=dict(width=1),
+        ))
     if "best_feasible_history" in extra:
-        fig.add_trace(go.Scatter(y=extra["best_feasible_history"], mode="lines", name="best feasible"))
+        fig.add_trace(go.Scatter(
+            y=extra["best_feasible_history"],
+            mode="lines",
+            name="best feasible",
+        ))
     fig.update_layout(
         title=(
             f"{result.algorithm} · {result.objective_name} · seed {result.seed} "
@@ -165,6 +219,7 @@ def objective_figure(result: SearchResult) -> go.Figure:
     return fig
 
 
+# Membentuk plot probabilitas penerimaan langkah yang memperburuk skor SA.
 def acceptance_figure(result: SearchResult) -> go.Figure:
     probs = result.extra["acceptance_prob"]
     points = [(i, p) for i, p in enumerate(probs) if p is not None]
@@ -182,6 +237,7 @@ def acceptance_figure(result: SearchResult) -> go.Figure:
     return fig
 
 
+# Membentuk plot penurunan temperatur Simulated Annealing.
 def temperature_figure(result: SearchResult) -> go.Figure:
     fig = go.Figure(go.Scatter(y=result.extra["temperature"], mode="lines"))
     fig.update_layout(

@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from algorithms.result import SearchResult
+from app.presentation import experiment_details, load_result_problem
+from core.models import load_problem
 from run_experiments import (
     OUTPUT_DIR,
     Experiment,
@@ -10,7 +13,6 @@ from run_experiments import (
     build_single_experiment,
     execute_experiment,
 )
-from core.models import load_problem
 
 MULTI = Path(__file__).parent.parent / "data" / "multi_truck.json"
 
@@ -134,5 +136,33 @@ def test_multi_truck_output_uses_problem_prefix(tmp_path):
     experiment = Experiment("random", 0, {}, "random")
 
     output_path = execute_experiment(experiment, problem, tmp_path)
+    result = SearchResult.load(output_path)
+    embedded_problem = load_result_problem(result, tmp_path / "missing-data")
 
     assert output_path.name == "multi_truck_random_seed0.json"
+    assert result.problem_definition is not None
+    assert embedded_problem == problem
+
+
+# Memastikan metadata wajib setiap algoritma dapat ditampilkan visualizer.
+def test_experiment_details_include_required_ga_parameters():
+    result = SearchResult(
+        algorithm="genetic",
+        params={"population_size": 50, "iterations": 500},
+        seed=0,
+        problem="test",
+        initial_state={},
+        final_state={},
+        final_objective=0.0,
+        feasible=True,
+        history=[0.0],
+        iterations=500,
+        duration_s=0.0,
+        extra={"best_iteration": 120},
+    )
+
+    assert experiment_details(result) == [
+        ("Jumlah populasi", 50),
+        ("Iterasi GA", 500),
+        ("Iterasi terbaik", 120),
+    ]

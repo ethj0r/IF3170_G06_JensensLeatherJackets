@@ -6,8 +6,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import streamlit as st
 
 from algorithms.result import SearchResult
-from app.plots import acceptance_figure, objective_figure, package_table, temperature_figure, truck_figure
-from core.models import load_problem
+from app.plots import (
+    acceptance_figure,
+    objective_figure,
+    package_table,
+    temperature_figure,
+    truck_figure,
+)
+from app.presentation import experiment_details, load_result_problem
 from core.objectives import DEFAULT_OBJECTIVE, resolve_objective, state_metrics
 
 SRC = Path(__file__).resolve().parent.parent
@@ -25,7 +31,11 @@ if not files:
 
 path = st.selectbox("Hasil", files, format_func=lambda p: p.name)
 result = SearchResult.load(path)
-problem = load_problem(DATA_DIR / f"{result.problem}.json")
+try:
+    problem = load_result_problem(result, DATA_DIR)
+except (FileNotFoundError, KeyError, TypeError, ValueError) as error:
+    st.error(f"Tidak dapat memuat definisi problem: {error}")
+    st.stop()
 evaluator = resolve_objective(problem, result.objective_name)
 final_metrics = result.extra.get(
     "final_metrics",
@@ -47,6 +57,18 @@ metrics.extend([
 cols = st.columns(len(metrics))
 for column, (label, value) in zip(cols, metrics):
     column.metric(label, value)
+
+st.subheader("Detail eksperimen")
+details = experiment_details(result)
+detail_columns = st.columns(len(details))
+for column, (label, value) in zip(detail_columns, details):
+    column.metric(label, value)
+if result.algorithm == "hill_climbing_restart":
+    per_restart = result.extra.get("iterations_per_restart", [])
+    st.caption(
+        "Iterasi per climb: "
+        + ", ".join(str(value) for value in per_restart)
+    )
 
 st.subheader("Visualisasi muatan")
 truck_tabs = st.tabs(list(problem.truck_ids))
@@ -76,7 +98,15 @@ for tab, truck_id in zip(truck_tabs, problem.truck_ids):
                 width="stretch",
             )
 
-with st.expander("Daftar paket dan assignment truk (final)"):
+st.subheader("Pemetaan seluruh paket")
+initial_table_tab, final_table_tab = st.tabs(["Initial state", "Final state"])
+with initial_table_tab:
+    st.dataframe(
+        package_table(result.initial_state, problem, result.objective_name),
+        hide_index=True,
+        width="stretch",
+    )
+with final_table_tab:
     st.dataframe(
         package_table(result.final_state, problem, result.objective_name),
         hide_index=True,
@@ -91,7 +121,3 @@ if "acceptance_prob" in result.extra:
         st.plotly_chart(acceptance_figure(result), width="stretch")
     with right:
         st.plotly_chart(temperature_figure(result), width="stretch")
-    st.write(
-        f"Langkah memburuk yang diterima: {result.extra['accepted_worse']} · "
-        f"stuck: {result.extra['stuck_count']}"
-    )
