@@ -16,6 +16,7 @@ DEFAULT_ORIENTATION = (0, 1, 2)
 MAX_TRIES = 100
 
 
+# Memeriksa apakah assignment paket berada di dalam batas truk tujuannya.
 def _fits(problem: Problem, pid: str, placement: StatePlacement | None) -> bool:
     if placement is None:
         return True
@@ -30,12 +31,14 @@ def _fits(problem: Problem, pid: str, placement: StatePlacement | None) -> bool:
     )
 
 
+# Membentuk salinan state dengan perubahan placement yang diberikan.
 def _apply(state: State, changes: dict[str, StatePlacement | None]) -> State:
     neighbor = dict(state)
     neighbor.update(changes)
     return neighbor
 
 
+# Menghasilkan extreme points pada tepat satu truk.
 def _local_extreme_points(
     state: State,
     problem: Problem,
@@ -82,6 +85,7 @@ def extreme_points(
     return points
 
 
+# Menukar slot dua paket tanpa menukar orientasi fisik milik paket.
 def swap(state: State, problem: Problem, a: str, b: str) -> State | None:
     pa, pb = state[a], state[b]
     if a == b or (pa is None and pb is None):
@@ -125,6 +129,7 @@ def swap(state: State, problem: Problem, a: str, b: str) -> State | None:
     return _apply(state, {a: new_a, b: new_b})
 
 
+# Memindahkan paket ke target lain atau ke luar armada.
 def relocate(state: State, problem: Problem, pid: str, target: Target) -> State | None:
     current = state[pid]
     if target is OUTSIDE:
@@ -151,6 +156,7 @@ def relocate(state: State, problem: Problem, pid: str, target: Target) -> State 
     return _apply(state, {pid: new})
 
 
+# Merotasi paket 90 derajat pada salah satu sumbu.
 def rotate(state: State, problem: Problem, pid: str, axis: str) -> State | None:
     current = state[pid]
     if current is None:
@@ -173,6 +179,7 @@ def rotate(state: State, problem: Problem, pid: str, axis: str) -> State | None:
     return _apply(state, {pid: new})
 
 
+# Membentuk initial state acak yang boleh mengandung pelanggaran constraint.
 def random_state(problem: Problem, rng: random.Random, p_insert: float = 0.5) -> State:
     # Tiap paket (urutan acak) berpeluang p_insert masuk di extreme point acak.
     # Tidak mengecek overlap: state awal boleh tidak valid, penalti yang membereskan.
@@ -199,10 +206,18 @@ def random_state(problem: Problem, rng: random.Random, p_insert: float = 0.5) ->
     return state
 
 
+# Menghasilkan satu neighbor acak menggunakan operator yang dapat diterapkan.
 def random_neighbor(state: State, problem: Problem, rng: random.Random) -> State:
     ids = list(state)
+    if not ids:
+        raise RuntimeError("Tidak ada paket yang dapat dipindahkan")
+
+    available_moves = ["relocate", "rotate"]
+    if len(ids) >= 2:
+        available_moves.append("swap")
+
     for _ in range(MAX_TRIES):
-        move = rng.choice(("swap", "relocate", "rotate"))
+        move = rng.choice(available_moves)
         if move == "swap":
             a, b = rng.sample(ids, 2)
             neighbor = swap(state, problem, a, b)
@@ -218,6 +233,7 @@ def random_neighbor(state: State, problem: Problem, rng: random.Random) -> State
     raise RuntimeError(f"Tidak menemukan neighbor valid setelah {MAX_TRIES} percobaan")
 
 
+# Menghasilkan seluruh neighbor swap, relocate, dan rotate secara lazy.
 def all_neighbors(state: State, problem: Problem) -> Iterator[State]:
     ids = list(state)
 

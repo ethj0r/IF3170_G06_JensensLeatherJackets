@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from algorithms import simulated_annealing
-from core.models import load_problem
+from core.models import Problem, Truck, load_problem
 from core.objective import is_feasible, objective
 
 PROBLEM = load_problem(Path(__file__).parent.parent / "data" / "tiny.json")
@@ -24,6 +24,8 @@ def test_panjang_history_sama():
     assert len(result.history) == n
     assert len(result.extra["temperature"]) == n
     assert len(result.extra["acceptance_prob"]) == n
+    assert len(result.extra["search_score_history"]) == n
+    assert result.history[0] == objective(result.initial_state, PROBLEM)
 
 
 def test_acceptance_prob_dan_suhu():
@@ -52,3 +54,23 @@ def test_parameter_tidak_valid():
         simulated_annealing.run(PROBLEM, seed=0, alpha=1.0)
     with pytest.raises(ValueError):
         simulated_annealing.run(PROBLEM, seed=0, t0=0.001)
+    with pytest.raises(ValueError):
+        simulated_annealing.run(PROBLEM, seed=0, t_min=-1)
+    with pytest.raises(ValueError):
+        simulated_annealing.run(PROBLEM, seed=0, max_iter=-1)
+    with pytest.raises(ValueError):
+        simulated_annealing.run(PROBLEM, seed=0, stuck_threshold=0)
+    with pytest.raises(ValueError):
+        simulated_annealing.run(PROBLEM, seed=0, penalty_weight=0)
+
+
+# Memastikan problem tanpa paket berhenti dengan solusi kosong yang feasible.
+def test_problem_tanpa_paket_berhenti_dengan_aman():
+    problem = Problem("empty", Truck(1, 1, 1, 0), {})
+
+    result = simulated_annealing.run(problem, seed=0, max_iter=10)
+
+    assert result.iterations == 0
+    assert result.final_state == {}
+    assert result.final_objective == 0.0
+    assert result.feasible

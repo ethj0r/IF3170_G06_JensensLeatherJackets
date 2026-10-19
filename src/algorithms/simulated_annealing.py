@@ -13,6 +13,7 @@ from core.objectives import (
 )
 
 
+# Menjalankan Simulated Annealing dan mencatat objective serta probabilitas penerimaan.
 def run(
     problem: Problem,
     seed: int,
@@ -26,8 +27,16 @@ def run(
 ) -> SearchResult:
     if not 0 < alpha < 1:
         raise ValueError("alpha must be between 0 and 1")
+    if t_min < 0:
+        raise ValueError("t_min must be non-negative")
     if t0 <= t_min:
         raise ValueError("t0 must be greater than t_min")
+    if max_iter < 0:
+        raise ValueError("max_iter must be non-negative")
+    if stuck_threshold <= 0:
+        raise ValueError("stuck_threshold must be positive")
+    if penalty_weight is not None and penalty_weight <= 0:
+        raise ValueError("penalty_weight must be positive")
     evaluator = resolve_objective(problem, objective_name)
     if penalty_weight is None:
         penalty_weight = max(
@@ -55,7 +64,8 @@ def run(
         best_state, best_value = dict(current), current_score
 
     temperature = t0
-    history = [current_score]
+    history = [evaluator.evaluate(current)]
+    search_score_history = [current_score]
     best_history = [best_value]
     temperatures = [temperature]
     acceptance_prob: list[float | None] = [None]
@@ -65,7 +75,10 @@ def run(
     iterations = 0
 
     while temperature > t_min and iterations < max_iter:
-        candidate = random_neighbor(current, problem, rng)
+        try:
+            candidate = random_neighbor(current, problem, rng)
+        except RuntimeError:
+            break
         candidate_score = search_score(candidate)
         delta = candidate_score - current_score
 
@@ -91,7 +104,8 @@ def run(
 
         iterations += 1
         temperature *= alpha
-        history.append(current_score)
+        history.append(evaluator.evaluate(current))
+        search_score_history.append(current_score)
         best_history.append(best_value)
         temperatures.append(temperature)
         acceptance_prob.append(prob)
@@ -119,6 +133,7 @@ def run(
         truck_count=problem.truck_count,
         extra={
             "best_feasible_history": best_history,
+            "search_score_history": search_score_history,
             "temperature": temperatures,
             "acceptance_prob": acceptance_prob,
             "accepted_worse": accepted_worse,

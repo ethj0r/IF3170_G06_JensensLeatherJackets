@@ -190,7 +190,13 @@ def is_well_formed_placement(placement: object) -> bool:
     return isinstance(orientation, tuple) and orientation in ORIENTATIONS
 
 
-def overlap_volume(pkg_a: Package, placement_a: Placement, pkg_b: Package, placement_b: Placement) -> int:
+# Menghitung volume irisan dua paket untuk penalti overlap.
+def overlap_volume(
+    pkg_a: Package,
+    placement_a: Placement,
+    pkg_b: Package,
+    placement_b: Placement,
+) -> int:
     ax, ay, az, adx, ady, adz = box(pkg_a, placement_a)
     bx, by, bz, bdx, bdy, bdz = box(pkg_b, placement_b)
     cx = min(ax + adx, bx + bdx) - max(ax, bx)
@@ -199,6 +205,7 @@ def overlap_volume(pkg_a: Package, placement_a: Placement, pkg_b: Package, place
     return max(0, cx) * max(0, cy) * max(0, cz)
 
 
+# Menghitung total pelanggaran hard constraint pada state.
 def violations(state: State, problem: Problem) -> int:
     if set(state) != set(problem.packages):
         return len(set(state).symmetric_difference(problem.packages)) or 1
@@ -256,6 +263,7 @@ def _single_truck_violations(state: State, problem: Problem) -> int:
     return total
 
 
+# Menghasilkan bobot penalti default berdasarkan batas atas objective.
 def default_penalty_weight(
     problem: Problem,
     objective_name: str = DEFAULT_OBJECTIVE,
@@ -264,6 +272,7 @@ def default_penalty_weight(
     return max(1.0, evaluator.maximum_score)
 
 
+# Menggabungkan objective dengan penalti hard constraint untuk pencarian.
 def penalized_objective(
     state: State,
     problem: Problem,

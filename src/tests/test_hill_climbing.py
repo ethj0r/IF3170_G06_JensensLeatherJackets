@@ -107,6 +107,21 @@ def test_stochastic_parameter_tidak_valid():
         hill_climbing.run_stochastic(PROBLEM, seed=0, max_stuck=-1)
 
 
+# Memastikan Stochastic HC selalu mengembalikan solusi feasible saat berhenti dini.
+def test_stochastic_final_state_tetap_feasible_saat_budget_kecil():
+    result = hill_climbing.run_stochastic(
+        PROBLEM,
+        seed=0,
+        max_iter=1,
+        max_stuck=1,
+    )
+
+    assert result.feasible
+    assert is_feasible(result.final_state, PROBLEM)
+    assert result.extra["violations"] == 0
+    assert result.final_objective == objective(result.final_state, PROBLEM)
+
+
 def test_sideways_nol_sama_dengan_steepest():
     a = hill_climbing.run(PROBLEM, seed=14, max_iter=100)
     b = hill_climbing.run_sideways(PROBLEM, seed=14, max_iter=100, max_sideways=0)

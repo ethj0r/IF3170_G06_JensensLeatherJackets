@@ -14,6 +14,7 @@ from core.objectives import (
     resolve_objective,
     state_metrics,
 )
+from core.packing import repair_state
 
 EPSILON = 1e-9
 
@@ -153,6 +154,29 @@ def run_stochastic(
     state = dict(init_state)
     score = _penalized_score(state, problem, evaluator, penalty)
     history = [evaluator.evaluate(state)]
+
+    # Menyediakan fallback feasible dan mempertahankan solusi feasible terbaik.
+    best_feasible_state = repair_state(
+        init_state,
+        problem,
+        random.Random(seed),
+        objective_name=objective_name,
+    )
+    best_feasible_value = evaluator.evaluate(best_feasible_state)
+    best_feasible_score = _penalized_score(
+        best_feasible_state,
+        problem,
+        evaluator,
+        penalty,
+    )
+    if (
+        is_feasible(state, problem)
+        and evaluator.evaluate(state) > best_feasible_value
+    ):
+        best_feasible_state = dict(state)
+        best_feasible_value = evaluator.evaluate(state)
+        best_feasible_score = score
+
     iterations = 0
     proposals = 0
     stuck = 0
@@ -178,6 +202,13 @@ def run_stochastic(
                 stuck = 0
                 iterations += 1
                 history.append(evaluator.evaluate(state))
+                if (
+                    is_feasible(state, problem)
+                    and evaluator.evaluate(state) > best_feasible_value
+                ):
+                    best_feasible_state = dict(state)
+                    best_feasible_value = evaluator.evaluate(state)
+                    best_feasible_score = score
                 moved = True
                 continue
             stuck += 1
@@ -186,22 +217,24 @@ def run_stochastic(
         if not moved:
             break
 
+    final_violations = violations(best_feasible_state, problem)
+
     return SearchResult(
         algorithm="hill_climbing_stochastic",
         params={"variant": "stochastic", "max_iter": max_iter, "max_stuck": max_stuck},
         seed=seed,
         problem=problem.name,
         initial_state=init_state,
-        final_state=state,
-        final_objective=evaluator.evaluate(state),
-        feasible=is_feasible(state, problem),
+        final_state=best_feasible_state,
+        final_objective=best_feasible_value,
+        feasible=final_violations == 0,
         history=history,
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
         truck_count=problem.truck_count,
         extra={
-            "violations": violations(state, problem),
+            "violations": final_violations,
             "initial_objective": history[0],
             "initial_score": _penalized_score(
                 init_state,
@@ -209,12 +242,14 @@ def run_stochastic(
                 evaluator,
                 penalty,
             ),
-            "final_score": score,
+            "final_score": best_feasible_score,
             "penalty_weight": penalty,
             "proposals": proposals,
             "max_stuck": max_stuck,
+            "last_state": state,
+            "last_score": score,
             "initial_metrics": state_metrics(init_state, problem),
-            "final_metrics": state_metrics(state, problem),
+            "final_metrics": state_metrics(best_feasible_state, problem),
         },
     )
 

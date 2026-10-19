@@ -248,6 +248,16 @@ def test_algorithms_support_multi_truck_problem(runner, params):
     ) == metrics["total_value"]
 
 
+# Memastikan regresi seed yang dahulu menghasilkan Stochastic HC infeasible teratasi.
+def test_multi_truck_stochastic_default_seed_zero_is_feasible():
+    problem = load_problem(MULTI)
+    result = hill_climbing.run_stochastic(problem, seed=0)
+
+    assert result.feasible
+    assert is_feasible(result.final_state, problem)
+    assert result.extra["violations"] == 0
+
+
 # Memastikan armada dua truk dapat mengangkut value lebih besar dari satu truk.
 def test_second_truck_increases_value_on_controlled_problem():
     fleet = make_fleet_problem(max_capacity=12)
