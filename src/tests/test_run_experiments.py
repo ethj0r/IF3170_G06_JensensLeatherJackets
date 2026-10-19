@@ -5,9 +5,14 @@ import pytest
 
 from run_experiments import (
     OUTPUT_DIR,
+    Experiment,
     build_all_experiments,
     build_single_experiment,
+    execute_experiment,
 )
+from core.models import load_problem
+
+MULTI = Path(__file__).parent.parent / "data" / "multi_truck.json"
 
 
 # Memastikan lokasi output sesuai struktur pengumpulan pada root repository.
@@ -121,3 +126,13 @@ def test_build_all_priority_objective_experiments():
         experiment.params["objective_name"] == "priority_value"
         for experiment in experiments
     )
+
+
+# Memastikan output multi-truk tidak menimpa eksperimen problem satu-truk.
+def test_multi_truck_output_uses_problem_prefix(tmp_path):
+    problem = load_problem(MULTI)
+    experiment = Experiment("random", 0, {}, "random")
+
+    output_path = execute_experiment(experiment, problem, tmp_path)
+
+    assert output_path.name == "multi_truck_random_seed0.json"
