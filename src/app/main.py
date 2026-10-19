@@ -10,7 +10,7 @@ from app.plots import acceptance_figure, objective_figure, package_table, temper
 from core.models import load_problem
 
 SRC = Path(__file__).resolve().parent.parent
-RESULTS_DIR = SRC / "results"
+RESULTS_DIR = SRC.parent / "output"
 DATA_DIR = SRC / "data"
 
 st.set_page_config(page_title="Truck Packing", layout="wide")
