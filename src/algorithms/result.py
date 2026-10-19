@@ -18,6 +18,7 @@ class SearchResult:
     history: list[float]  # objektif per iterasi (GA: maksimum populasi)
     iterations: int
     duration_s: float
+    objective_name: str = "total_value"
     extra: dict = field(default_factory=dict)
 
     def save(self, path: str | Path) -> None:

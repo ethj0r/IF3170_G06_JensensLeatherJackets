@@ -5,7 +5,12 @@ import time
 from algorithms.result import SearchResult
 from core.models import Problem, State
 from core.neighbors import random_neighbor, random_state
-from core.objective import is_feasible, penalized_objective
+from core.objective import is_feasible, violations
+from core.objectives import (
+    DEFAULT_OBJECTIVE,
+    resolve_objective,
+    state_metrics,
+)
 
 
 def run(
@@ -17,20 +22,32 @@ def run(
     max_iter: int = 50_000,
     penalty_weight: float | None = None,
     stuck_threshold: int = 500,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> SearchResult:
     if not 0 < alpha < 1:
         raise ValueError("alpha must be between 0 and 1")
     if t0 <= t_min:
         raise ValueError("t0 must be greater than t_min")
+    evaluator = resolve_objective(problem, objective_name)
     if penalty_weight is None:
-        penalty_weight = float(max(pkg.value for pkg in problem.packages.values()))
+        penalty_weight = max(
+            evaluator.package_utilities.values(),
+            default=1.0,
+        )
+
+    # Menghitung skor pencarian dengan objective terpilih dan penalti constraint.
+    def search_score(state: State) -> float:
+        return (
+            evaluator.evaluate(state)
+            - penalty_weight * violations(state, problem)
+        )
 
     start = time.perf_counter()
     rng = random.Random(seed)
 
     initial_state = random_state(problem, rng)
     current = initial_state
-    current_score = penalized_objective(current, problem, penalty_weight)
+    current_score = search_score(current)
 
     best_state: State = {pid: None for pid in problem.packages}
     best_value = 0.0
@@ -49,7 +66,7 @@ def run(
 
     while temperature > t_min and iterations < max_iter:
         candidate = random_neighbor(current, problem, rng)
-        candidate_score = penalized_objective(candidate, problem, penalty_weight)
+        candidate_score = search_score(candidate)
         delta = candidate_score - current_score
 
         prob = None
@@ -98,6 +115,7 @@ def run(
         history=history,
         iterations=iterations,
         duration_s=time.perf_counter() - start,
+        objective_name=objective_name,
         extra={
             "best_feasible_history": best_history,
             "temperature": temperatures,
@@ -106,5 +124,7 @@ def run(
             "stuck_count": stuck_count,
             "last_state": current,
             "last_score": current_score,
+            "initial_metrics": state_metrics(initial_state, problem),
+            "final_metrics": state_metrics(best_state, problem),
         },
     )

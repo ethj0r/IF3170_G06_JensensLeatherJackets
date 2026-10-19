@@ -4,7 +4,13 @@ from statistics import fmean
 
 from algorithms.result import SearchResult
 from core.models import Problem, State
-from core.objective import is_feasible, objective, rotate
+from core.objective import is_feasible, rotate
+from core.objectives import (
+    DEFAULT_OBJECTIVE,
+    ObjectiveEvaluator,
+    resolve_objective,
+    state_metrics,
+)
 from core.packing import find_valid_placement, random_feasible_state, repair_state
 
 
@@ -47,6 +53,7 @@ def swap_mutation(
     state: State,
     problem: Problem,
     rng: random.Random,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> State:
     if len(state) < 2:
         return dict(state)
@@ -54,7 +61,13 @@ def swap_mutation(
     first_id, second_id = rng.sample(list(state), 2)
     mutated = dict(state)
     mutated[first_id], mutated[second_id] = mutated[second_id], mutated[first_id]
-    return repair_state(mutated, problem, rng, fill_outside=False)
+    return repair_state(
+        mutated,
+        problem,
+        rng,
+        fill_outside=False,
+        objective_name=objective_name,
+    )
 
 
 # Memindahkan satu paket ke placement feasible yang berbeda dari placement awal.
@@ -63,6 +76,7 @@ def move_mutation(
     state: State,
     problem: Problem,
     rng: random.Random,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> State:
     package_ids = list(state)
     rng.shuffle(package_ids)
@@ -99,6 +113,7 @@ def rotate_mutation(
     state: State,
     problem: Problem,
     rng: random.Random,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> State:
     placed_ids = [
         package_id
@@ -114,7 +129,13 @@ def rotate_mutation(
 
     mutated = dict(state)
     mutated[package_id] = (x, y, z, rotate(orientation, axis))
-    return repair_state(mutated, problem, rng, fill_outside=False)
+    return repair_state(
+        mutated,
+        problem,
+        rng,
+        fill_outside=False,
+        objective_name=objective_name,
+    )
 
 
 # Memilih secara acak satu operator mutation yang dapat diterapkan pada state.
@@ -122,6 +143,7 @@ def mutate(
     state: State,
     problem: Problem,
     rng: random.Random,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> State:
     if not state:
         return dict(state)
@@ -133,7 +155,7 @@ def mutate(
         operators.append(rotate_mutation)
 
     operator = rng.choice(operators)
-    return operator(state, problem, rng)
+    return operator(state, problem, rng, objective_name)
 
 
 # Memvalidasi seluruh hyperparameter sebelum proses Genetic Algorithm dimulai.
@@ -162,9 +184,12 @@ def _validate_parameters(
         raise ValueError("inclusion_probability must be between 0 and 1")
 
 
-# Menghitung fitness seluruh populasi menggunakan objective function spesifikasi.
-def _evaluate_population(population: list[State], problem: Problem) -> list[float]:
-    return [objective(individual, problem) for individual in population]
+# Menghitung fitness seluruh populasi menggunakan objective yang dipilih.
+def _evaluate_population(
+    population: list[State],
+    evaluator: ObjectiveEvaluator,
+) -> list[float]:
+    return [evaluator.evaluate(individual) for individual in population]
 
 
 # Menjalankan Genetic Algorithm dan mencatat fitness maksimum serta rata-rata.
@@ -179,6 +204,7 @@ def run(
     tournament_size: int = 3,
     elite_count: int = 2,
     inclusion_probability: float = 0.8,
+    objective_name: str = DEFAULT_OBJECTIVE,
 ) -> SearchResult:
     _validate_parameters(
         population_size,
@@ -192,11 +218,12 @@ def run(
 
     start = time.perf_counter()
     rng = random.Random(seed)
+    evaluator = resolve_objective(problem, objective_name)
     population = [
         random_feasible_state(problem, rng, inclusion_probability)
         for _ in range(population_size)
     ]
-    fitnesses = _evaluate_population(population, problem)
+    fitnesses = _evaluate_population(population, evaluator)
 
     initial_best_index = max(range(population_size), key=fitnesses.__getitem__)
     initial_state = dict(population[initial_best_index])
@@ -237,13 +264,19 @@ def run(
             else:
                 child = dict(parent_a)
 
-            child = repair_state(child, problem, rng, fill_outside=False)
+            child = repair_state(
+                child,
+                problem,
+                rng,
+                fill_outside=False,
+                objective_name=objective_name,
+            )
             if rng.random() < mutation_rate:
-                child = mutate(child, problem, rng)
+                child = mutate(child, problem, rng, objective_name)
             next_population.append(child)
 
         population = next_population
-        fitnesses = _evaluate_population(population, problem)
+        fitnesses = _evaluate_population(population, evaluator)
         generation_best_index = max(
             range(population_size),
             key=fitnesses.__getitem__,
@@ -282,10 +315,13 @@ def run(
         history=max_history,
         iterations=iterations,
         duration_s=time.perf_counter() - start,
+        objective_name=objective_name,
         extra={
             "average_history": average_history,
             "initial_best_objective": max_history[0],
             "final_population_average": average_history[-1],
             "best_iteration": best_iteration,
+            "initial_metrics": state_metrics(initial_state, problem),
+            "final_metrics": state_metrics(best_state, problem),
         },
     )
