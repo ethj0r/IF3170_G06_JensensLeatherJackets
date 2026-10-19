@@ -1,6 +1,7 @@
 import random
 
-from core.models import Orientation, Package, Placement, Problem, State
+from core.fleet import join_placement, placement_z, project_truck_state, split_placement
+from core.models import Orientation, Package, Placement, Problem, State, StatePlacement
 from core.objectives import (
     DEFAULT_OBJECTIVE,
     ObjectiveEvaluator,
@@ -21,6 +22,34 @@ from core.objective import (
 # Memeriksa apakah paket dapat ditambahkan ke state feasible tanpa melanggar constraint.
 # Fungsi ini mengasumsikan package_id sedang berada di luar state sebelum ditambahkan.
 def _can_add_to_feasible_state(
+    state: State,
+    package_id: str,
+    placement: StatePlacement,
+    problem: Problem,
+) -> bool:
+    if problem.is_multi_truck:
+        try:
+            truck_id, local_placement = split_placement(placement, problem)
+        except (TypeError, ValueError):
+            return False
+        local_problem = Problem(
+            problem.name,
+            problem.truck_for(truck_id),
+            problem.packages,
+        )
+        local_state = project_truck_state(state, problem, truck_id)
+        local_state[package_id] = None
+        return _can_add_to_single_truck(
+            local_state,
+            package_id,
+            local_placement,
+            local_problem,
+        )
+    return _can_add_to_single_truck(state, package_id, placement, problem)
+
+
+# Memeriksa penambahan paket pada satu truk tanpa melanggar hard constraint.
+def _can_add_to_single_truck(
     state: State,
     package_id: str,
     placement: Placement,
@@ -67,7 +96,7 @@ def _can_add_to_feasible_state(
 def can_place(
     state: State,
     package_id: str,
-    placement: Placement,
+    placement: StatePlacement,
     problem: Problem,
 ) -> bool:
     if package_id not in problem.packages:
@@ -107,12 +136,60 @@ def find_valid_placement(
     package_id: str,
     problem: Problem,
     rng: random.Random,
-    excluded_placements: set[Placement] | None = None,
-) -> Placement | None:
+    excluded_placements: set[StatePlacement] | None = None,
+) -> StatePlacement | None:
     if package_id not in problem.packages:
         raise KeyError(f"Unknown package ID: {package_id}")
     if set(state) != set(problem.packages):
         return None
+
+    if problem.is_multi_truck:
+        truck_ids = list(problem.truck_ids)
+        rng.shuffle(truck_ids)
+        for truck_id in truck_ids:
+            local_problem = Problem(
+                problem.name,
+                problem.truck_for(truck_id),
+                problem.packages,
+            )
+            local_state = project_truck_state(state, problem, truck_id)
+            local_excluded: set[Placement] = set()
+            for excluded in excluded_placements or set():
+                try:
+                    excluded_truck, local = split_placement(excluded, problem)
+                except (TypeError, ValueError):
+                    continue
+                if excluded_truck == truck_id:
+                    local_excluded.add(local)
+
+            placement = _find_valid_single_truck_placement(
+                local_state,
+                package_id,
+                local_problem,
+                rng,
+                local_excluded or None,
+            )
+            if placement is not None:
+                return join_placement(truck_id, placement, problem)
+        return None
+
+    return _find_valid_single_truck_placement(
+        state,
+        package_id,
+        problem,
+        rng,
+        excluded_placements,
+    )
+
+
+# Mencari placement valid pada tepat satu truk secara bottom-up.
+def _find_valid_single_truck_placement(
+    state: State,
+    package_id: str,
+    problem: Problem,
+    rng: random.Random,
+    excluded_placements: set[Placement] | None = None,
+) -> Placement | None:
 
     base_state = dict(state)
     base_state[package_id] = None
@@ -206,15 +283,21 @@ def repair_state(
         placement = state.get(package_id)
         if placement is None:
             outside_ids.append(package_id)
-        elif is_well_formed_placement(placement):
-            valid_candidates.append((package_id, placement))
         else:
-            rejected_ids.append(package_id)
+            try:
+                _, local_placement = split_placement(placement, problem)
+            except (TypeError, ValueError):
+                rejected_ids.append(package_id)
+                continue
+            if is_well_formed_placement(local_placement):
+                valid_candidates.append((package_id, placement))
+            else:
+                rejected_ids.append(package_id)
 
     # Urutan z menjaga dependency support; value density memutus konflik setingkat.
     valid_candidates.sort(
         key=lambda item: (
-            item[1][2],
+            placement_z(item[1], problem),
             -_utility_density(item[0], problem, evaluator),
             -evaluator.package_utilities[item[0]],
             item[0],

@@ -19,6 +19,7 @@ class SearchResult:
     iterations: int
     duration_s: float
     objective_name: str = "total_value"
+    truck_count: int = 1
     extra: dict = field(default_factory=dict)
 
     def save(self, path: str | Path) -> None:

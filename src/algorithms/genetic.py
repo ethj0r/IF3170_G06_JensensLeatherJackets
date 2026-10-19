@@ -3,7 +3,9 @@ import time
 from statistics import fmean
 
 from algorithms.result import SearchResult
+from core.fleet import join_placement, split_placement
 from core.models import Problem, State
+from core.neighbors import swap as swap_neighbor
 from core.objective import is_feasible, rotate
 from core.objectives import (
     DEFAULT_OBJECTIVE,
@@ -59,8 +61,9 @@ def swap_mutation(
         return dict(state)
 
     first_id, second_id = rng.sample(list(state), 2)
-    mutated = dict(state)
-    mutated[first_id], mutated[second_id] = mutated[second_id], mutated[first_id]
+    mutated = swap_neighbor(state, problem, first_id, second_id)
+    if mutated is None:
+        return dict(state)
     return repair_state(
         mutated,
         problem,
@@ -124,11 +127,16 @@ def rotate_mutation(
         return dict(state)
 
     package_id = rng.choice(placed_ids)
-    x, y, z, orientation = state[package_id]
+    truck_id, local_placement = split_placement(state[package_id], problem)
+    x, y, z, orientation = local_placement
     axis = rng.choice(("x", "y", "z"))
 
     mutated = dict(state)
-    mutated[package_id] = (x, y, z, rotate(orientation, axis))
+    mutated[package_id] = join_placement(
+        truck_id,
+        (x, y, z, rotate(orientation, axis)),
+        problem,
+    )
     return repair_state(
         mutated,
         problem,
@@ -316,6 +324,7 @@ def run(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "average_history": average_history,
             "initial_best_objective": max_history[0],

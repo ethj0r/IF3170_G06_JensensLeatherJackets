@@ -116,6 +116,7 @@ def run(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "best_feasible_history": best_history,
             "temperature": temperatures,

@@ -56,6 +56,7 @@ def run_random(problem: Problem, seed: int, **params) -> SearchResult:
         iterations=0,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "initial_metrics": state_metrics(state, problem),
             "final_metrics": state_metrics(state, problem),
@@ -241,7 +242,8 @@ def execute_experiment(
         experiment.seed,
         **experiment.params,
     )
-    output_path = output_dir / experiment.filename
+    problem_prefix = f"{problem.name}_" if problem.is_multi_truck else ""
+    output_path = output_dir / f"{problem_prefix}{experiment.filename}"
     result.save(output_path)
     print(
         f"{experiment.algorithm}: seed={experiment.seed} "

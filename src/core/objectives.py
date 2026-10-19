@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from core.fleet import fleet_metrics
 from core.models import Problem, State
 
 DEFAULT_OBJECTIVE = "total_value"
@@ -86,14 +87,14 @@ def resolve_objective(
 
 
 # Menghasilkan metrik state yang tetap dapat dibandingkan lintas objective.
-def state_metrics(state: State, problem: Problem) -> dict[str, float | int]:
+def state_metrics(state: State, problem: Problem) -> dict[str, object]:
     loaded_packages = [
         problem.packages[package_id]
         for package_id, placement in state.items()
         if placement is not None
     ]
     loaded_count = len(loaded_packages)
-    return {
+    metrics: dict[str, object] = {
         "total_value": float(sum(package.value for package in loaded_packages)),
         "total_weight": sum(package.weight for package in loaded_packages),
         "loaded_packages": loaded_count,
@@ -103,3 +104,6 @@ def state_metrics(state: State, problem: Problem) -> dict[str, float | int]:
             else 0.0
         ),
     }
+    if problem.is_multi_truck:
+        metrics["truck_metrics"] = fleet_metrics(state, problem)
+    return metrics

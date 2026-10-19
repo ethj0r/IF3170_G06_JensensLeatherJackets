@@ -110,6 +110,7 @@ def run(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "violations": violations(state, problem),
             "initial_objective": history[0],
@@ -198,6 +199,7 @@ def run_stochastic(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "violations": violations(state, problem),
             "initial_objective": history[0],
@@ -304,6 +306,7 @@ def run_sideways(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "violations": violations(state, problem),
             "initial_objective": history[0],
@@ -390,6 +393,7 @@ def run_restart(
         iterations=iterations,
         duration_s=time.perf_counter() - start,
         objective_name=objective_name,
+        truck_count=problem.truck_count,
         extra={
             "violations": violations(best_state, problem),
             "initial_objective": evaluator.evaluate(init_state),
