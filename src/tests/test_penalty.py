@@ -69,6 +69,11 @@ def test_penalized_objective():
     assert penalized_objective(state, PROBLEM) == 50 - default_penalty_weight(PROBLEM)
 
 
+# Memastikan satu pelanggaran selalu lebih mahal daripada seluruh objective.
+def test_penalty_default_benar_benar_dominan():
+    assert default_penalty_weight(PROBLEM) > objective(FULL, PROBLEM)
+
+
 def test_violations_nol_sama_dengan_feasible():
     rng = random.Random(0)
     state = random_state(PROBLEM, rng)

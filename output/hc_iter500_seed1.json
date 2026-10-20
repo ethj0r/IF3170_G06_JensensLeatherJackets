@@ -405,12 +405,488 @@
     6830.0
   ],
   "iterations": 20,
-  "duration_s": 3.0432435410039034,
+  "duration_s": 3.1196251250221394,
+  "objective_name": "total_value",
+  "truck_count": 1,
+  "problem_definition": {
+    "name": "large",
+    "packages": [
+      {
+        "id": "L01",
+        "w": 8,
+        "l": 6,
+        "h": 4,
+        "value": 520,
+        "weight": 75,
+        "is_fragile": false,
+        "eta": 2
+      },
+      {
+        "id": "L02",
+        "w": 10,
+        "l": 5,
+        "h": 3,
+        "value": 410,
+        "weight": 58,
+        "is_fragile": false,
+        "eta": 5
+      },
+      {
+        "id": "L03",
+        "w": 6,
+        "l": 6,
+        "h": 6,
+        "value": 620,
+        "weight": 90,
+        "is_fragile": false,
+        "eta": 1
+      },
+      {
+        "id": "L04",
+        "w": 4,
+        "l": 4,
+        "h": 2,
+        "value": 180,
+        "weight": 12,
+        "is_fragile": true,
+        "eta": 4
+      },
+      {
+        "id": "L05",
+        "w": 12,
+        "l": 3,
+        "h": 2,
+        "value": 230,
+        "weight": 25,
+        "is_fragile": false,
+        "eta": 6
+      },
+      {
+        "id": "L06",
+        "w": 7,
+        "l": 5,
+        "h": 4,
+        "value": 350,
+        "weight": 48,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L07",
+        "w": 3,
+        "l": 3,
+        "h": 3,
+        "value": 145,
+        "weight": 9,
+        "is_fragile": true,
+        "eta": 1
+      },
+      {
+        "id": "L08",
+        "w": 9,
+        "l": 4,
+        "h": 2,
+        "value": 260,
+        "weight": 22,
+        "is_fragile": false,
+        "eta": 7
+      },
+      {
+        "id": "L09",
+        "w": 5,
+        "l": 5,
+        "h": 5,
+        "value": 470,
+        "weight": 65,
+        "is_fragile": false,
+        "eta": 2
+      },
+      {
+        "id": "L10",
+        "w": 11,
+        "l": 6,
+        "h": 2,
+        "value": 390,
+        "weight": 44,
+        "is_fragile": false,
+        "eta": 4
+      },
+      {
+        "id": "L11",
+        "w": 2,
+        "l": 8,
+        "h": 2,
+        "value": 160,
+        "weight": 10,
+        "is_fragile": true,
+        "eta": 5
+      },
+      {
+        "id": "L12",
+        "w": 8,
+        "l": 8,
+        "h": 3,
+        "value": 560,
+        "weight": 70,
+        "is_fragile": false,
+        "eta": 1
+      },
+      {
+        "id": "L13",
+        "w": 4,
+        "l": 10,
+        "h": 2,
+        "value": 270,
+        "weight": 28,
+        "is_fragile": false,
+        "eta": 6
+      },
+      {
+        "id": "L14",
+        "w": 6,
+        "l": 3,
+        "h": 1,
+        "value": 95,
+        "weight": 6,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L15",
+        "w": 7,
+        "l": 7,
+        "h": 5,
+        "value": 690,
+        "weight": 98,
+        "is_fragile": false,
+        "eta": 2
+      },
+      {
+        "id": "L16",
+        "w": 3,
+        "l": 12,
+        "h": 3,
+        "value": 330,
+        "weight": 38,
+        "is_fragile": false,
+        "eta": 7
+      },
+      {
+        "id": "L17",
+        "w": 5,
+        "l": 4,
+        "h": 3,
+        "value": 285,
+        "weight": 20,
+        "is_fragile": true,
+        "eta": 1
+      },
+      {
+        "id": "L18",
+        "w": 10,
+        "l": 4,
+        "h": 4,
+        "value": 490,
+        "weight": 62,
+        "is_fragile": false,
+        "eta": 5
+      },
+      {
+        "id": "L19",
+        "w": 2,
+        "l": 6,
+        "h": 5,
+        "value": 210,
+        "weight": 24,
+        "is_fragile": false,
+        "eta": 4
+      },
+      {
+        "id": "L20",
+        "w": 8,
+        "l": 3,
+        "h": 6,
+        "value": 440,
+        "weight": 55,
+        "is_fragile": false,
+        "eta": 2
+      },
+      {
+        "id": "L21",
+        "w": 6,
+        "l": 9,
+        "h": 2,
+        "value": 315,
+        "weight": 35,
+        "is_fragile": false,
+        "eta": 6
+      },
+      {
+        "id": "L22",
+        "w": 4,
+        "l": 5,
+        "h": 7,
+        "value": 460,
+        "weight": 52,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L23",
+        "w": 3,
+        "l": 7,
+        "h": 2,
+        "value": 205,
+        "weight": 13,
+        "is_fragile": true,
+        "eta": 4
+      },
+      {
+        "id": "L24",
+        "w": 12,
+        "l": 6,
+        "h": 4,
+        "value": 760,
+        "weight": 110,
+        "is_fragile": false,
+        "eta": 1
+      },
+      {
+        "id": "L25",
+        "w": 5,
+        "l": 10,
+        "h": 3,
+        "value": 425,
+        "weight": 57,
+        "is_fragile": false,
+        "eta": 7
+      },
+      {
+        "id": "L26",
+        "w": 9,
+        "l": 5,
+        "h": 5,
+        "value": 640,
+        "weight": 88,
+        "is_fragile": false,
+        "eta": 2
+      },
+      {
+        "id": "L27",
+        "w": 2,
+        "l": 4,
+        "h": 2,
+        "value": 120,
+        "weight": 5,
+        "is_fragile": true,
+        "eta": 5
+      },
+      {
+        "id": "L28",
+        "w": 7,
+        "l": 4,
+        "h": 2,
+        "value": 240,
+        "weight": 18,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L29",
+        "w": 6,
+        "l": 6,
+        "h": 3,
+        "value": 365,
+        "weight": 42,
+        "is_fragile": false,
+        "eta": 6
+      },
+      {
+        "id": "L30",
+        "w": 10,
+        "l": 7,
+        "h": 3,
+        "value": 590,
+        "weight": 82,
+        "is_fragile": false,
+        "eta": 1
+      },
+      {
+        "id": "L31",
+        "w": 4,
+        "l": 9,
+        "h": 4,
+        "value": 450,
+        "weight": 54,
+        "is_fragile": false,
+        "eta": 4
+      },
+      {
+        "id": "L32",
+        "w": 8,
+        "l": 5,
+        "h": 2,
+        "value": 340,
+        "weight": 26,
+        "is_fragile": true,
+        "eta": 2
+      },
+      {
+        "id": "L33",
+        "w": 3,
+        "l": 3,
+        "h": 6,
+        "value": 190,
+        "weight": 21,
+        "is_fragile": false,
+        "eta": 7
+      },
+      {
+        "id": "L34",
+        "w": 11,
+        "l": 4,
+        "h": 5,
+        "value": 655,
+        "weight": 91,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L35",
+        "w": 5,
+        "l": 8,
+        "h": 4,
+        "value": 510,
+        "weight": 63,
+        "is_fragile": false,
+        "eta": 5
+      },
+      {
+        "id": "L36",
+        "w": 6,
+        "l": 2,
+        "h": 2,
+        "value": 150,
+        "weight": 7,
+        "is_fragile": true,
+        "eta": 1
+      },
+      {
+        "id": "L37",
+        "w": 9,
+        "l": 6,
+        "h": 3,
+        "value": 485,
+        "weight": 60,
+        "is_fragile": false,
+        "eta": 6
+      },
+      {
+        "id": "L38",
+        "w": 4,
+        "l": 6,
+        "h": 5,
+        "value": 375,
+        "weight": 46,
+        "is_fragile": false,
+        "eta": 4
+      },
+      {
+        "id": "L39",
+        "w": 7,
+        "l": 3,
+        "h": 3,
+        "value": 300,
+        "weight": 19,
+        "is_fragile": true,
+        "eta": 2
+      },
+      {
+        "id": "L40",
+        "w": 12,
+        "l": 5,
+        "h": 3,
+        "value": 545,
+        "weight": 72,
+        "is_fragile": false,
+        "eta": 7
+      },
+      {
+        "id": "L41",
+        "w": 2,
+        "l": 10,
+        "h": 2,
+        "value": 175,
+        "weight": 12,
+        "is_fragile": false,
+        "eta": 3
+      },
+      {
+        "id": "L42",
+        "w": 6,
+        "l": 4,
+        "h": 7,
+        "value": 530,
+        "weight": 68,
+        "is_fragile": false,
+        "eta": 5
+      },
+      {
+        "id": "L43",
+        "w": 5,
+        "l": 5,
+        "h": 2,
+        "value": 255,
+        "weight": 16,
+        "is_fragile": true,
+        "eta": 1
+      },
+      {
+        "id": "L44",
+        "w": 8,
+        "l": 7,
+        "h": 4,
+        "value": 675,
+        "weight": 86,
+        "is_fragile": false,
+        "eta": 4
+      },
+      {
+        "id": "L45",
+        "w": 3,
+        "l": 11,
+        "h": 4,
+        "value": 405,
+        "weight": 49,
+        "is_fragile": false,
+        "eta": 6
+      }
+    ],
+    "truck": {
+      "w": 14,
+      "l": 24,
+      "h": 8,
+      "max_capacity": 850
+    }
+  },
   "extra": {
     "violations": 0,
     "initial_objective": 5210.0,
-    "initial_score": -20108515.0,
+    "initial_score": -20109680.0,
     "final_score": 6830.0,
-    "penalty_weight": 17265.0
+    "penalty_weight": 17266.0,
+    "used_feasible_fallback": false,
+    "initial_metrics": {
+      "total_value": 5210.0,
+      "total_weight": 660,
+      "loaded_packages": 12,
+      "average_eta": 3.5
+    },
+    "final_metrics": {
+      "total_value": 6830.0,
+      "total_weight": 796,
+      "loaded_packages": 19,
+      "average_eta": 3.473684210526316
+    }
   }
 }

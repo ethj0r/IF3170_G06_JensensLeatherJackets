@@ -263,13 +263,14 @@ def _single_truck_violations(state: State, problem: Problem) -> int:
     return total
 
 
-# Menghasilkan bobot penalti default berdasarkan batas atas objective.
+# Menghasilkan penalti di atas batas objective agar state infeasible selalu
+# lebih buruk daripada state kosong yang feasible.
 def default_penalty_weight(
     problem: Problem,
     objective_name: str = DEFAULT_OBJECTIVE,
 ) -> float:
     evaluator = resolve_objective(problem, objective_name)
-    return max(1.0, evaluator.maximum_score)
+    return max(1.0, evaluator.maximum_score + 1.0)
 
 
 # Menggabungkan objective dengan penalti hard constraint untuk pencarian.

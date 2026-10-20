@@ -5,6 +5,7 @@ from algorithms.result import SearchResult
 from core.models import Problem, State
 from core.neighbors import all_neighbors, random_state
 from core.objective import (
+    default_penalty_weight,
     is_feasible,
     violations,
 )
@@ -39,6 +40,21 @@ def _penalized_score(
     penalty: float,
 ) -> float:
     return evaluator.evaluate(state) - penalty * violations(state, problem)
+
+
+# Membentuk solusi feasible deterministik sebagai jaminan hasil akhir pencarian.
+def _feasible_fallback(
+    state: State,
+    problem: Problem,
+    seed: int,
+    objective_name: str,
+) -> State:
+    return repair_state(
+        state,
+        problem,
+        random.Random(seed),
+        objective_name=objective_name,
+    )
 
 
 # Steepest ascent penuh dari satu state awal: tiap iterasi pindah ke neighbor
@@ -92,11 +108,20 @@ def run(
     start = time.perf_counter()
     init_state = random_state(problem, random.Random(seed))
     evaluator = resolve_objective(problem, objective_name)
-    penalty = max(1.0, evaluator.maximum_score)
+    penalty = default_penalty_weight(problem, objective_name)
 
     state, history, iterations, score = _steepest_climb(
         dict(init_state), problem, evaluator, penalty, max_iter
     )
+    used_feasible_fallback = not is_feasible(state, problem)
+    if used_feasible_fallback:
+        state = _feasible_fallback(
+            init_state,
+            problem,
+            seed,
+            objective_name,
+        )
+        score = _penalized_score(state, problem, evaluator, penalty)
 
     return SearchResult(
         algorithm="hill_climbing_steepest",
@@ -123,6 +148,7 @@ def run(
             ),
             "final_score": score,
             "penalty_weight": penalty,
+            "used_feasible_fallback": used_feasible_fallback,
             "initial_metrics": state_metrics(init_state, problem),
             "final_metrics": state_metrics(state, problem),
         },
@@ -149,18 +175,18 @@ def run_stochastic(
     rng = random.Random(seed)
     init_state = random_state(problem, rng)
     evaluator = resolve_objective(problem, objective_name)
-    penalty = max(1.0, evaluator.maximum_score)
+    penalty = default_penalty_weight(problem, objective_name)
 
     state = dict(init_state)
     score = _penalized_score(state, problem, evaluator, penalty)
     history = [evaluator.evaluate(state)]
 
     # Menyediakan fallback feasible dan mempertahankan solusi feasible terbaik.
-    best_feasible_state = repair_state(
+    best_feasible_state = _feasible_fallback(
         init_state,
         problem,
-        random.Random(seed),
-        objective_name=objective_name,
+        seed,
+        objective_name,
     )
     best_feasible_value = evaluator.evaluate(best_feasible_state)
     best_feasible_score = _penalized_score(
@@ -273,7 +299,7 @@ def run_sideways(
     rng = random.Random(seed)
     init_state = random_state(problem, rng)
     evaluator = resolve_objective(problem, objective_name)
-    penalty = max(1.0, evaluator.maximum_score)
+    penalty = default_penalty_weight(problem, objective_name)
 
     state = dict(init_state)
     score = _penalized_score(state, problem, evaluator, penalty)
@@ -324,6 +350,16 @@ def run_sideways(
         iterations += 1
         history.append(evaluator.evaluate(state))
 
+    used_feasible_fallback = not is_feasible(state, problem)
+    if used_feasible_fallback:
+        state = _feasible_fallback(
+            init_state,
+            problem,
+            seed,
+            objective_name,
+        )
+        score = _penalized_score(state, problem, evaluator, penalty)
+
     return SearchResult(
         algorithm="hill_climbing_sideways",
         params={
@@ -353,6 +389,7 @@ def run_sideways(
             ),
             "final_score": score,
             "penalty_weight": penalty,
+            "used_feasible_fallback": used_feasible_fallback,
             "sideways_moves": sideways_moves,
             "max_sideways": max_sideways,
             "initial_metrics": state_metrics(init_state, problem),
@@ -379,12 +416,13 @@ def run_restart(
     start = time.perf_counter()
     rng = random.Random(seed)
     evaluator = resolve_objective(problem, objective_name)
-    penalty = max(1.0, evaluator.maximum_score)
+    penalty = default_penalty_weight(problem, objective_name)
     maximum_objective = evaluator.maximum_score
 
     init_state = random_state(problem, rng)
-    best_state = dict(init_state)
-    best_score = _penalized_score(best_state, problem, evaluator, penalty)
+    best_state: State | None = None
+    best_score = float("-inf")
+    best_from_fallback = False
     history: list[float] = []
     iterations = 0
     iterations_per_restart: list[int] = []
@@ -404,11 +442,33 @@ def run_restart(
         iterations += climb_iterations
         iterations_per_restart.append(climb_iterations)
 
-        if score > best_score:
-            best_score = score
-            best_state = dict(state)
+        used_fallback = not is_feasible(state, problem)
+        if used_fallback:
+            candidate_state = _feasible_fallback(
+                climb_init,
+                problem,
+                seed + climb,
+                objective_name,
+            )
+            candidate_score = _penalized_score(
+                candidate_state,
+                problem,
+                evaluator,
+                penalty,
+            )
+        else:
+            candidate_state = state
+            candidate_score = score
+
+        if candidate_score > best_score:
+            best_score = candidate_score
+            best_state = dict(candidate_state)
+            best_from_fallback = used_fallback
         if best_score >= maximum_objective - EPSILON:
             break
+
+    if best_state is None:
+        raise RuntimeError("Random Restart Hill-Climbing produced no result")
 
     restarts = len(iterations_per_restart) - 1
     return SearchResult(
@@ -440,6 +500,7 @@ def run_restart(
             ),
             "final_score": best_score,
             "penalty_weight": penalty,
+            "used_feasible_fallback": best_from_fallback,
             "restarts": restarts,
             "iterations_per_restart": iterations_per_restart,
             "restart_boundaries": restart_boundaries,

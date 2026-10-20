@@ -3,10 +3,24 @@ from pathlib import Path
 import pytest
 
 from algorithms import hill_climbing
-from core.models import load_problem
+from core.models import Package, Problem, Truck, load_problem
 from core.objective import is_feasible, objective
 
 PROBLEM = load_problem(Path(__file__).parent.parent / "data" / "tiny.json")
+PENALTY_TIE_PROBLEM = Problem(
+    name="penalty_tie",
+    truck=Truck(w=1, l=1, h=1, max_capacity=0),
+    packages={
+        "P": Package(
+            id="P",
+            w=1,
+            l=1,
+            h=1,
+            value=1,
+            weight=1,
+        ),
+    },
+)
 
 
 def test_hasil_feasible_dan_konsisten():
@@ -51,6 +65,46 @@ def test_max_iter_nol():
 def test_parameter_tidak_valid():
     with pytest.raises(ValueError):
         hill_climbing.run(PROBLEM, seed=0, max_iter=-1)
+
+
+# Memastikan semua varian mengembalikan fallback feasible saat pencarian
+# belum bergerak.
+@pytest.mark.parametrize(
+    ("runner", "params"),
+    [
+        (hill_climbing.run, {"max_iter": 0}),
+        (
+            hill_climbing.run_sideways,
+            {"max_iter": 0, "max_sideways": 0},
+        ),
+        (
+            hill_climbing.run_restart,
+            {"max_iter": 0, "max_restarts": 0},
+        ),
+    ],
+)
+@pytest.mark.parametrize("objective_name", ["total_value", "priority_value"])
+def test_final_state_feasible_pada_kasus_penalty_tie(
+    runner,
+    params,
+    objective_name,
+):
+    result = runner(
+        PENALTY_TIE_PROBLEM,
+        seed=1,
+        objective_name=objective_name,
+        **params,
+    )
+
+    assert result.feasible
+    assert is_feasible(result.final_state, PENALTY_TIE_PROBLEM)
+    assert result.extra["violations"] == 0
+    assert result.extra["used_feasible_fallback"]
+    assert result.final_objective == objective(
+        result.final_state,
+        PENALTY_TIE_PROBLEM,
+        objective_name,
+    )
 
 
 def test_stochastic_history_dan_iterasi():
