@@ -22,7 +22,66 @@ cd src
 cd ..
 ```
 
-Jalankan satu eksperimen Genetic Algorithm:
+## Menjalankan eksperimen melalui interface
+
+Dari root repository, aktifkan virtual environment dan buka aplikasi:
+
+```bash
+source .venv/bin/activate
+python -m streamlit run src/app/main.py
+```
+
+Buka alamat yang ditampilkan terminal, biasanya `http://localhost:8501`.
+Interface menyediakan dua mode:
+
+- **Eksperimen baru**: pilih dataset, algoritma, dan objective, isi seed serta
+  parameter, lalu klik **Jalankan eksperimen**. Satu klik menjalankan satu
+  percobaan. Mengubah input saja tidak menjalankan algoritma.
+- **Hasil tersimpan**: buka kembali hasil JSON di `output/`, termasuk hasil
+  dalam subfolder.
+
+Pilihan algoritma mencakup Steepest Ascent Hill Climbing, Stochastic Hill
+Climbing, Hill Climbing dengan sideways move, Random Restart Hill Climbing,
+Simulated Annealing, Genetic Algorithm, dan random baseline. Input parameter
+menyesuaikan algoritma yang dipilih. Objective yang tersedia adalah
+`total_value` dan `priority_value`.
+
+### Contoh input Simulated Annealing untuk laporan
+
+Pilih mode **Eksperimen baru**, lalu isi:
+
+| Input | Nilai |
+| --- | --- |
+| Dataset | `large` |
+| Algoritma | Simulated Annealing |
+| Objective | `total_value` |
+| Seed | `0` |
+| Temperatur awal | `100` |
+| Faktor pendinginan (alpha) | `0.99982` |
+| Temperatur minimum | `0.01` |
+| Maksimum iterasi | `100` |
+| Bobot penalti | `760` |
+| Stuck threshold | `500` |
+
+Klik **Jalankan eksperimen** dan ambil screenshot setelah hasil muncul.
+Untuk percobaan berikutnya, ubah seed menjadi `1` atau `2`, lalu klik tombol
+tersebut lagi. Ulangi langkah yang sama dengan maksimum iterasi `500` dan
+`1000` untuk memperoleh sembilan percobaan, masing-masing dijalankan manual.
+
+Hasil baru otomatis disimpan di `output/` dengan nama unik agar percobaan
+sebelumnya tidak tertimpa. Definisi problem ikut disimpan bersama hasil.
+Visualisasi dan metrik tetap tampil setelah input diubah sampai percobaan
+berikutnya dijalankan; periksa judul hasil untuk memastikan seed dan dataset
+yang sedang ditampilkan.
+
+Interface menampilkan initial state, final state, seluruh paket di dalam maupun
+di luar truk, grafik objective, parameter eksperimen, dan informasi khusus tiap
+algoritma. SA dilengkapi grafik probabilitas penerimaan dan temperatur. Untuk
+problem multi-truk tersedia satu tab untuk setiap truk.
+
+## Menjalankan eksperimen melalui terminal
+
+Sebagai alternatif, jalankan satu eksperimen Genetic Algorithm:
 
 ```bash
 python src/run_experiments.py \
@@ -49,16 +108,6 @@ Rangkaian tersebut menjalankan tiga Steepest Ascent Hill-Climbing, tiga
 Simulated Annealing, sembilan GA untuk variasi iterasi, dan sembilan GA untuk
 variasi populasi. Hasil JSON disimpan pada folder `output/` dan perlu disertakan
 dalam repository agar eksperimen dapat diperiksa serta divisualisasikan.
-
-Jalankan visualizer:
-
-```bash
-streamlit run src/app/main.py
-```
-
-Visualizer menampilkan initial state, final state, seluruh paket di dalam maupun
-di luar truk, grafik objective, parameter eksperimen, dan informasi khusus tiap
-algoritma. Untuk problem multi-truk tersedia satu tab untuk setiap truk.
 
 ## Format input multi-truk
 
